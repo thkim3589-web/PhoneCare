@@ -1,0 +1,49 @@
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 프로젝트를 zip 파일 하나로 올린 경우 자동으로 압축 해제
+      - name: Unpack project zip
+        run: |
+          if [ ! -f settings.gradle.kts ] && ls *.zip >/dev/null 2>&1; then
+            unzip -o -q "$(ls *.zip | head -1)" -d .
+          fi
+          ls -la
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Rename APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk PhoneCare.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PhoneCare-apk
+          path: PhoneCare.apk
+
+      # Releases에 APK를 올려서 폰에서 바로 다운로드 가능하게
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: 폰케어 빌드 ${{ github.run_number }}
+          files: PhoneCare.apk
