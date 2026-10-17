@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 휴대폰 + 체크 표시 아이콘 (108dp 안전영역 기준) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 휴대폰 몸체 -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4"
+        android:pathData="M42,30 L66,30 A5,5 0 0 1 71,35 L71,73 A5,5 0 0 1 66,78 L42,78 A5,5 0 0 1 37,73 L37,35 A5,5 0 0 1 42,30 Z" />
+    <!-- 스피커 -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M50,34.5 L58,34.5 A1.5,1.5 0 0 1 58,37.5 L50,37.5 A1.5,1.5 0 0 1 50,34.5 Z" />
+    <!-- 체크 -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF5EEAD4"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M46,55 L52,61 L63,49" />
+</vector>

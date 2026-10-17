@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 상태바용 배터리 아이콘 (흰색 단색) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M9,2h6v2h1.5A1.5,1.5 0 0 1 18,5.5v15A1.5,1.5 0 0 1 16.5,22h-9A1.5,1.5 0 0 1 6,20.5v-15A1.5,1.5 0 0 1 7.5,4H9V2zM12.5,8l-4,6.5h3v3.5l4,-6.5h-3V8z" />
+</vector>
