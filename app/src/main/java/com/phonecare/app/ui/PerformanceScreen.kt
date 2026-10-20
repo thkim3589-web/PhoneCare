@@ -188,7 +188,8 @@ fun PerformanceScreen(resumeTick: Int) {
                     Button(
                         onClick = {
                             if (!MemoryCleaner.canClean) {
-                                showGuide = true
+                                // 안드로이드 14+: 삼성 메모리 정리 화면으로 바로 이동
+                                MemoryCleaner.openMemoryScreen(context)
                             } else {
                             cleaning = true
                             scope.launch {
@@ -211,10 +212,18 @@ fun PerformanceScreen(resumeTick: Int) {
                         enabled = !cleaning,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text(if (cleaning) "정리 중…" else "메모리 정리")
+                        Text(
+                            when {
+                                cleaning -> "정리 중…"
+                                MemoryCleaner.canClean -> "메모리 정리"
+                                else -> "메모리 정리 (디바이스 케어로 이동)"
+                            },
+                        )
                     }
                     Text(
-                        "안드로이드는 남는 메모리를 캐시로 써서 앱을 빨리 다시 열어요. 사용률이 높아도 정상이고, " +
+                        (if (MemoryCleaner.canClean) "" else
+                            "안드로이드 14부터는 시스템 앱만 다른 앱을 종료할 수 있어서, 삼성 메모리 화면을 바로 열어드려요. 거기서 '지금 정리'를 누르세요.\n") +
+                            "안드로이드는 남는 메모리를 캐시로 써서 앱을 빨리 다시 열어요. 사용률이 높아도 정상이고, " +
                             "버벅일 때만 정리하는 게 좋아요.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

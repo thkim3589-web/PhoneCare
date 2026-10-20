@@ -39,16 +39,22 @@ object MemoryCleaner {
         return count
     }
 
-    /** 삼성 디바이스 케어가 있으면 열고, 없으면 앱 목록 설정을 연다. */
-    fun openDeviceCare(context: Context) {
-        val samsung = Intent().setClassName(
-            "com.samsung.android.lool",
+    /** 삼성 디바이스 케어 → 메모리 화면을 바로 연다. 안 되면 디바이스 케어 첫 화면 → 앱 목록 순으로 시도 */
+    fun openMemoryScreen(context: Context) {
+        val pkg = "com.samsung.android.lool"
+        val candidates = listOf(
+            "com.samsung.android.sm.ui.ram.RamActivity",
             "com.samsung.android.sm.ui.dashboard.SmartManagerDashBoardActivity",
-        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        try {
-            context.startActivity(samsung)
-        } catch (e: Exception) {
-            context.openSettings(Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS))
+        )
+        for (cls in candidates) {
+            try {
+                context.startActivity(Intent().setClassName(pkg, cls).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                return
+            } catch (e: Exception) {
+            }
         }
+        context.openSettings(Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS))
     }
+
+    fun openDeviceCare(context: Context) = openMemoryScreen(context)
 }
