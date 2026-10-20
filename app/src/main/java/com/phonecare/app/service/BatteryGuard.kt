@@ -18,6 +18,7 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.phonecare.app.MainActivity
 import com.phonecare.app.R
+import com.phonecare.app.widget.PhoneCareWidget
 import java.util.Locale
 
 /** 충전·과열 알림 설정 */
@@ -125,6 +126,9 @@ class BatteryGuardService : Service() {
             lastStatusText = text
             notify(ID_STATUS, statusNotification(text))
         }
+
+        // 홈 화면 위젯도 함께 갱신 (1분에 한 번까지)
+        PhoneCareWidget.updateAll(this)
 
         // 충전 한도 알림: 충전할 때마다 한 번
         val limit = GuardSettings.chargeLimit(this)

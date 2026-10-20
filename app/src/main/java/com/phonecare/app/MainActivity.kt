@@ -55,9 +55,13 @@ import com.phonecare.app.ui.StorageScreen
 import com.phonecare.app.ui.TipsScreen
 import com.phonecare.app.ui.UpdateBanner
 import com.phonecare.app.util.CrashLog
+import com.phonecare.app.widget.PhoneCareWidget
 
 /** 홈 화면 추천에서 "권한 설정"을 눌렀을 때 쓰는 특별 번호 */
 const val NAV_SETUP = 99
+
+/** 홈 화면 추천에서 "위젯 추가"를 눌렀을 때 쓰는 특별 번호 */
+const val NAV_WIDGET = 98
 
 class MainActivity : ComponentActivity() {
 
@@ -88,6 +92,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         resumeTick++
+        PhoneCareWidget.updateAll(this, force = true)
     }
 }
 
@@ -157,7 +162,17 @@ private fun MainApp(resumeTick: Int) {
             Box(Modifier.weight(1f)) {
                 when (tab) {
                     0 -> HomeScreen(resumeTick) { target ->
-                        if (target == NAV_SETUP) showSetup = true else tab = target
+                        when (target) {
+                            NAV_SETUP -> showSetup = true
+                            NAV_WIDGET -> if (!PhoneCareWidget.requestPin(context)) {
+                                Toast.makeText(
+                                    context,
+                                    "홈 화면 빈 곳을 길게 누르고 [위젯 → 폰케어]를 선택해 추가해 주세요",
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                            }
+                            else -> tab = target
+                        }
                     }
                     1 -> PerformanceScreen(resumeTick)
                     2 -> StorageScreen(resumeTick)

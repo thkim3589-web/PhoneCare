@@ -79,6 +79,19 @@
             </intent-filter>
         </service>
 
+        <!-- 홈 화면 위젯 -->
+        <receiver
+            android:name=".widget.PhoneCareWidget"
+            android:exported="true"
+            android:label="폰케어 상태">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info" />
+        </receiver>
+
         <receiver
             android:name=".service.GuardBootReceiver"
             android:exported="true">

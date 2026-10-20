@@ -151,7 +151,8 @@ fun HomeScreen(resumeTick: Int, onNavigate: (Int) -> Unit) {
 
         // ---------- 추천 조치 ----------
         val setupIncomplete = remember(resumeTick) { isSetupIncomplete(context) }
-        val recs = buildRecommendations(battery, storage, brand, setupIncomplete)
+        val noWidget = remember(resumeTick) { !com.phonecare.app.widget.PhoneCareWidget.hasWidgets(context) }
+        val recs = buildRecommendations(battery, storage, brand, setupIncomplete, noWidget)
         PremiumCard(Modifier.fillMaxWidth()) {
             Text("추천 조치", style = MaterialTheme.typography.titleMedium)
             recs.forEachIndexed { i, rec ->
@@ -240,6 +241,7 @@ private fun buildRecommendations(
     s: StorageInfoData?,
     brand: BrandColors,
     setupIncomplete: Boolean,
+    noWidget: Boolean,
 ): List<Recommendation> {
     val list = mutableListOf<Recommendation>()
     if (setupIncomplete) {
@@ -262,5 +264,8 @@ private fun buildRecommendations(
     }
     list.add(Recommendation("📦", brand.end, "안 쓰는 앱·앱 권한 점검", "오래 안 쓴 앱과 권한이 과한 앱을 확인해요", 3))
     list.add(Recommendation("⚡", brand.start, "최적화 체크리스트", "효과 있는 설정만 모았어요", 4))
+    if (noWidget) {
+        list.add(Recommendation("🧩", brand.end, "홈 화면에 위젯 추가", "앱을 열지 않아도 점수·배터리·온도를 바로 확인해요", com.phonecare.app.NAV_WIDGET))
+    }
     return list
 }

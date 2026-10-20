@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">폰케어</string>
+    <string name="widget_desc">관리 점수와 배터리·저장공간·메모리·온도를 한눈에</string>
 </resources>
