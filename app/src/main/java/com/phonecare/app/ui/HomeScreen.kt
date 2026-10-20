@@ -150,7 +150,8 @@ fun HomeScreen(resumeTick: Int, onNavigate: (Int) -> Unit) {
         }
 
         // ---------- 추천 조치 ----------
-        val recs = buildRecommendations(battery, storage, brand)
+        val setupIncomplete = remember(resumeTick) { isSetupIncomplete(context) }
+        val recs = buildRecommendations(battery, storage, brand, setupIncomplete)
         PremiumCard(Modifier.fillMaxWidth()) {
             Text("추천 조치", style = MaterialTheme.typography.titleMedium)
             recs.forEachIndexed { i, rec ->
@@ -234,8 +235,16 @@ private fun RecommendationRow(rec: Recommendation, onClick: () -> Unit) {
     }
 }
 
-private fun buildRecommendations(b: BatteryInfo?, s: StorageInfoData?, brand: BrandColors): List<Recommendation> {
+private fun buildRecommendations(
+    b: BatteryInfo?,
+    s: StorageInfoData?,
+    brand: BrandColors,
+    setupIncomplete: Boolean,
+): List<Recommendation> {
     val list = mutableListOf<Recommendation>()
+    if (setupIncomplete) {
+        list.add(Recommendation("🔑", brand.start, "권한 설정 마저 하기", "일부 기능이 꺼져 있어요. 눌러서 한 번에 허용하세요", com.phonecare.app.NAV_SETUP))
+    }
     if (s != null) {
         val pct = (s.usedRatio * 100).toInt()
         when {
@@ -251,7 +260,7 @@ private fun buildRecommendations(b: BatteryInfo?, s: StorageInfoData?, brand: Br
             list.add(Recommendation("⚠️", ScoreBad, "배터리 상태: ${b.health}", "서비스센터 점검을 권장해요"))
         }
     }
-    list.add(Recommendation("📦", brand.end, "안 쓰는 앱 확인", "오래 안 쓴 앱을 지우면 공간과 배터리가 절약돼요", 3))
+    list.add(Recommendation("📦", brand.end, "안 쓰는 앱·앱 권한 점검", "오래 안 쓴 앱과 권한이 과한 앱을 확인해요", 3))
     list.add(Recommendation("⚡", brand.start, "최적화 체크리스트", "효과 있는 설정만 모았어요", 4))
     return list
 }
