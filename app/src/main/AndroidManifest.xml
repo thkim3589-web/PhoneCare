@@ -68,6 +68,17 @@
                 android:value="Battery charge limit and overheating alerts" />
         </service>
 
+        <!-- 알림 많은 앱: 앱별 알림 '개수'만 셈 (내용은 읽지 않음) -->
+        <service
+            android:name=".service.NotifCounterService"
+            android:exported="true"
+            android:label="폰케어 알림 집계"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
         <receiver
             android:name=".service.GuardBootReceiver"
             android:exported="true">
