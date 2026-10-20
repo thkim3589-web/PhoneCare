@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -59,6 +60,7 @@ fun PerformanceScreen(resumeTick: Int) {
     var memory by remember { mutableStateOf<MemoryInfoData?>(null) }
     var cleaning by remember { mutableStateOf(false) }
     var showGuide by remember { mutableStateOf(false) }
+    var showPicker by remember { mutableStateOf(false) }
     var section by rememberSaveable { mutableIntStateOf(0) }
 
     // 2초마다 갱신
@@ -189,7 +191,9 @@ fun PerformanceScreen(resumeTick: Int) {
                         onClick = {
                             if (!MemoryCleaner.canClean) {
                                 // 안드로이드 14+: 삼성 메모리 정리 화면으로 바로 이동
-                                MemoryCleaner.openMemoryScreen(context)
+                                if (!MemoryCleaner.openMemoryScreen(context)) {
+                                    Toast.makeText(context, "디바이스 케어에서 '메모리'를 눌러주세요", Toast.LENGTH_LONG).show()
+                                }
                             } else {
                             cleaning = true
                             scope.launch {
@@ -228,6 +232,9 @@ fun PerformanceScreen(resumeTick: Int) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (!MemoryCleaner.canClean && MemoryCleaner.hasDeviceCare(context)) {
+                        TextButton(onClick = { showPicker = true }) { Text("다른 화면이 열리나요? 직접 고르기") }
+                    }
                 }
             }
         }
@@ -235,6 +242,45 @@ fun PerformanceScreen(resumeTick: Int) {
         }
 
         Spacer(Modifier.height(8.dp))
+    }
+
+    if (showPicker) {
+        val screens = remember { MemoryCleaner.deviceCareScreens(context) }
+        AlertDialog(
+            onDismissRequest = { showPicker = false },
+            title = { Text("메모리 화면 고르기") },
+            text = {
+                Column(
+                    Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        "디바이스 케어 안의 화면 목록이에요. 하나씩 눌러보고 '지금 정리' 버튼이 있는 메모리 화면이 열리면, " +
+                            "그 화면이 저장돼서 다음부터 바로 열려요. 위쪽일수록 메모리 화면일 가능성이 높아요.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (screens.isEmpty()) {
+                        Text("디바이스 케어 화면 목록을 읽을 수 없어요.", style = MaterialTheme.typography.bodyMedium)
+                    }
+                    screens.forEach { cls ->
+                        TextButton(onClick = {
+                            if (MemoryCleaner.openComponent(context, cls)) {
+                                MemoryCleaner.savePreferred(context, cls)
+                                Toast.makeText(context, "이 화면을 저장했어요. 아니면 돌아와서 다른 걸 눌러보세요", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "이 화면은 열 수 없어요", Toast.LENGTH_SHORT).show()
+                            }
+                        }) {
+                            Text(MemoryCleaner.shortName(cls), Modifier.fillMaxWidth())
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showPicker = false }) { Text("닫기") } },
+        )
     }
 
     if (showGuide) {

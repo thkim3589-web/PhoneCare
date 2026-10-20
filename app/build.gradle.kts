@@ -12,8 +12,8 @@ android {
         applicationId = "com.phonecare.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 12
-        versionName = "2.7"
+        versionCode = 13
+        versionName = "2.8"
     }
 
     // 고정 서명 키: 새로 빌드한 APK를 기존 앱 위에 덮어서 설치(업데이트)할 수 있게 함
