@@ -45,6 +45,7 @@ import com.phonecare.app.data.ProtectedFolders
 import com.phonecare.app.data.TrashManager
 import com.phonecare.app.util.formatBytes
 import com.phonecare.app.util.formatDate
+import com.phonecare.app.util.openFilePreview
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -243,6 +244,16 @@ private fun PhotoTile(photo: PhotoItem, isKeep: Boolean, checked: Boolean, onCli
             ) {
                 if (checked) Text("✓", color = Color.White, style = MaterialTheme.typography.labelMedium)
             }
+            val ctx = LocalContext.current
+            Box(
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(5.dp)
+                    .size(26.dp)
+                    .background(Color.Black.copy(alpha = 0.45f), CircleShape)
+                    .clickable { ctx.openFilePreview(photo.path) },
+                contentAlignment = Alignment.Center,
+            ) { Text("🔍", style = MaterialTheme.typography.labelMedium) }
             if (isKeep) {
                 Text(
                     "남기기 추천",

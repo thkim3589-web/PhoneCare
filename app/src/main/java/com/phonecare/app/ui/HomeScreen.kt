@@ -93,10 +93,13 @@ fun HomeScreen(resumeTick: Int, onNavigate: (Int) -> Unit) {
             androidx.compose.material3.FilledTonalButton(onClick = { onNavigate(com.phonecare.app.NAV_GUIDE) }) {
                 Text("📖 가이드")
             }
+            androidx.compose.material3.IconButton(onClick = { onNavigate(com.phonecare.app.NAV_SETTINGS) }) {
+                Text("⚙️", style = MaterialTheme.typography.titleLarge)
+            }
         }
 
         // ---------- 히어로: 점수 ----------
-        HeroScore(score)
+        HeroScore(score, DeviceInfo.scoreItems(battery, memory, storage))
 
         // ---------- 지표 타일 2x2 ----------
         val s = storage
@@ -175,8 +178,9 @@ fun HomeScreen(resumeTick: Int, onNavigate: (Int) -> Unit) {
 }
 
 @Composable
-private fun HeroScore(score: Int) {
+private fun HeroScore(score: Int, items: List<DeviceInfo.ScoreItem>) {
     val brand = LocalBrand.current
+    var showDetail by remember { mutableStateOf(false) }
     val color = when {
         score >= 80 -> ScoreGood
         score >= 60 -> ScoreWarn
@@ -196,6 +200,7 @@ private fun HeroScore(score: Int) {
                     listOf(brand.start.copy(alpha = if (brand.isDark) 0.22f else 0.14f), brand.end.copy(alpha = if (brand.isDark) 0.18f else 0.10f)),
                 ),
             )
+            .clickable { showDetail = true }
             .padding(22.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -214,8 +219,43 @@ private fun HeroScore(score: Int) {
                 Text("관리 점수", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(label, style = MaterialTheme.typography.titleLarge, color = color)
                 Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("점수 근거 보기 ›", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             }
         }
+    }
+
+    if (showDetail) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showDetail = false },
+            title = { Text("관리 점수 $score점 근거") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "100점에서 시작해 체감 속도에 영향을 주는 항목만 감점해요.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    items.forEach { item ->
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(item.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                                Text(
+                                    if (item.penalty > 0) "-${item.penalty}점" else "감점 없음",
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (item.penalty > 0) ScoreBad else ScoreGood,
+                                )
+                            }
+                            Text(
+                                "${item.state} · ${item.advice}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { showDetail = false }) { Text("확인") } },
+        )
     }
 }
 

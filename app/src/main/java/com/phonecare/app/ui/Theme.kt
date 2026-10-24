@@ -104,7 +104,11 @@ val NumberStyle = TextStyle(fontWeight = FontWeight.ExtraBold, letterSpacing = (
 
 @Composable
 fun PhoneCareTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
+    val dark = when (AppSettings.themeMode) {
+        AppSettings.THEME_LIGHT -> false
+        AppSettings.THEME_DARK -> true
+        else -> isSystemInDarkTheme()
+    }
     val brand = if (dark) {
         BrandColors(Mint, Azure, Mint.copy(alpha = 0.35f), true)
     } else {

@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.phonecare.app.data.TrashItem
 import com.phonecare.app.data.TrashManager
 import com.phonecare.app.util.formatBytes
+import com.phonecare.app.util.openFilePreview
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -199,7 +200,8 @@ private fun TrashRow(item: TrashItem, keepDays: Int, checked: Boolean, onToggle:
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(checked = checked, onCheckedChange = { onToggle() })
-        FileThumbnail(item.trashPath, Modifier.size(48.dp))
+        val ctx = LocalContext.current
+        FileThumbnail(item.trashPath, Modifier.size(48.dp).clickable { ctx.openFilePreview(item.trashPath) })
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(item.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)

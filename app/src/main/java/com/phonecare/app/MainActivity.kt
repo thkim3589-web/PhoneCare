@@ -2,10 +2,12 @@ package com.phonecare.app
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.graphics.Color
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
@@ -33,6 +35,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import com.phonecare.app.data.Changelog
 import com.phonecare.app.data.TrashManager
 import com.phonecare.app.service.GuardSettings
+import com.phonecare.app.ui.AppSettings
 import com.phonecare.app.ui.AppsTab
 import com.phonecare.app.ui.GuideScreen
 import com.phonecare.app.ui.HomeScreen
@@ -54,6 +58,8 @@ import com.phonecare.app.ui.PerformanceScreen
 import com.phonecare.app.ui.PhoneCareTheme
 import com.phonecare.app.ui.SetupPrefs
 import com.phonecare.app.ui.SetupScreen
+import com.phonecare.app.ui.SettingsScreen
+import com.phonecare.app.ui.LocalBrand
 import com.phonecare.app.ui.StorageScreen
 import com.phonecare.app.ui.TipsScreen
 import com.phonecare.app.ui.UpdateBanner
@@ -73,6 +79,9 @@ const val NAV_GUIDE = 97
 /** 저장공간 탭의 휴지통 바로 열기 */
 const val NAV_TRASH = 96
 
+/** 설정 열기 */
+const val NAV_SETTINGS = 95
+
 class MainActivity : ComponentActivity() {
 
     // 설정 화면에서 돌아올 때마다 값이 바뀌어 각 화면이 권한/목록을 다시 확인하게 함
@@ -81,6 +90,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         CrashLog.install(this)
+        AppSettings.load(this)
         enableEdgeToEdge()
         // 보관 기간(7일)이 지난 휴지통 파일 자동 삭제
         val appContext = applicationContext
@@ -94,6 +104,16 @@ class MainActivity : ComponentActivity() {
         if (GuardSettings.isEnabled(this)) GuardSettings.start(this)
         setContent {
             PhoneCareTheme {
+                // 테마를 직접 고른 경우 상태바 아이콘 색도 맞춤
+                val dark = LocalBrand.current.isDark
+                LaunchedEffect(dark) {
+                    val style = if (dark) {
+                        SystemBarStyle.dark(Color.TRANSPARENT)
+                    } else {
+                        SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+                    }
+                    enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+                }
                 MainApp(resumeTick)
             }
         }
@@ -123,6 +143,7 @@ private fun MainApp(resumeTick: Int) {
     var showSetup by rememberSaveable { mutableStateOf(!SetupPrefs.isDone(context)) }
     var crash by remember { mutableStateOf(CrashLog.read(context)) }
     var showGuide by rememberSaveable { mutableStateOf(false) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
     // 업데이트 후 처음 열면 "새로 바뀐 점" (새로 설치한 경우는 안내 화면 뒤 조용히 기록만)
     var whatsNew by remember {
         val seen = Changelog.lastSeen(context)
@@ -148,6 +169,26 @@ private fun MainApp(resumeTick: Int) {
                 Changelog.markSeen(context, BuildConfig.VERSION_CODE)
                 showSetup = false
             }
+        }
+        return
+    }
+
+    if (showSettings && !showGuide) {
+        BackHandler { showSettings = false }
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .systemBarsPadding(),
+        ) {
+            SettingsScreen(
+                onClose = { showSettings = false },
+                onOpenSetup = {
+                    showSettings = false
+                    showSetup = true
+                },
+                onOpenGuide = { showGuide = true },
+            )
         }
         return
     }
@@ -202,6 +243,7 @@ private fun MainApp(resumeTick: Int) {
                         when (target) {
                             NAV_SETUP -> showSetup = true
                             NAV_GUIDE -> showGuide = true
+                            NAV_SETTINGS -> showSettings = true
                             NAV_TRASH -> {
                                 com.phonecare.app.ui.ScanState.storageSection = 3
                                 tab = 2

@@ -74,33 +74,53 @@ object DeviceInfo {
      * 0~100 점수. 실제로 체감 속도에 영향을 주는 항목 위주로 감점.
      * (저장공간이 거의 꽉 차면 느려지고, 고온이면 성능이 제한됨)
      */
-    fun score(b: BatteryInfo?, m: MemoryInfoData?, s: StorageInfoData?): Int {
-        var score = 100
+    /** 점수 항목: 항목 이름, 현재 상태, 감점, 개선 방법 */
+    data class ScoreItem(val name: String, val state: String, val penalty: Int, val advice: String)
+
+    fun scoreItems(b: BatteryInfo?, m: MemoryInfoData?, s: StorageInfoData?): List<ScoreItem> {
+        val items = ArrayList<ScoreItem>()
         if (s != null && s.total > 0) {
             val used = s.usedRatio
-            score -= when {
+            val pct = (used * 100).toInt()
+            val p = when {
                 used > 0.9f -> 35
                 used > 0.8f -> 15
                 used > 0.7f -> 5
                 else -> 0
             }
+            items.add(ScoreItem("저장공간", "${pct}% 사용 중", p, if (p > 0) "저장공간 탭에서 정리하면 점수가 올라가요 (70% 이하 목표)" else "여유 있어요"))
         }
         if (m != null && m.total > 0) {
             val avail = m.available.toFloat() / m.total
-            score -= when {
+            val p = when {
                 m.lowMemory || avail < 0.1f -> 10
                 avail < 0.2f -> 5
                 else -> 0
             }
+            items.add(ScoreItem("메모리", "여유 ${(avail * 100).toInt()}%", p, if (p > 0) "안 쓰는 앱을 닫거나 메모리 정리를 해보세요" else "충분해요"))
         }
         if (b != null) {
-            score -= when {
+            val p = when {
                 b.temperatureC >= 42f -> 20
                 b.temperatureC >= 38f -> 8
                 else -> 0
             }
-            if (!b.healthGood) score -= 15
+            items.add(
+                ScoreItem(
+                    "배터리 온도", String.format(java.util.Locale.US, "%.1f°C", b.temperatureC), p,
+                    if (p > 0) "무거운 앱·충전을 잠시 멈추고 식히면 회복돼요" else "정상이에요",
+                ),
+            )
+            val hp = if (!b.healthGood) 15 else 0
+            items.add(ScoreItem("배터리 상태", b.health, hp, if (hp > 0) "서비스센터 점검을 권장해요" else "양호해요"))
         }
-        return score.coerceIn(0, 100)
+        return items
     }
+
+    /**
+     * 0~100 점수. 실제로 체감 속도에 영향을 주는 항목 위주로 감점.
+     * (저장공간이 거의 꽉 차면 느려지고, 고온이면 성능이 제한됨)
+     */
+    fun score(b: BatteryInfo?, m: MemoryInfoData?, s: StorageInfoData?): Int =
+        (100 - scoreItems(b, m, s).sumOf { it.penalty }).coerceIn(0, 100)
 }

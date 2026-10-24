@@ -64,6 +64,7 @@ import com.phonecare.app.data.TrashManager
 import com.phonecare.app.util.formatBytes
 import com.phonecare.app.util.agoText
 import com.phonecare.app.util.formatDate
+import com.phonecare.app.util.openFilePreview
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -493,7 +494,8 @@ private fun FileRow(file: FoundFile, checked: Boolean, onToggle: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(checked = checked, onCheckedChange = { onToggle() })
-        FileThumbnail(file.path, Modifier.size(44.dp))
+        val ctx = LocalContext.current
+        FileThumbnail(file.path, Modifier.size(44.dp).clickable { ctx.openFilePreview(file.path) })
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(file.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)

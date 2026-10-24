@@ -41,13 +41,18 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
+/** 새 버전 정보 (설정 화면의 '업데이트 확인'과 배너가 함께 씀) */
+object UpdateState {
+    var info by mutableStateOf<UpdateInfo?>(null)
+}
+
 /** 화면 위쪽에 뜨는 "새 버전" 배너. 앱을 열거나 돌아올 때마다 확인 */
 @Composable
 fun UpdateBanner(resumeTick: Int) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val brand = LocalBrand.current
-    var info by remember { mutableStateOf<UpdateInfo?>(null) }
+    var info by UpdateState::info
     var dismissedTag by remember { mutableStateOf<String?>(null) }
     var downloading by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf(0f) }

@@ -329,7 +329,7 @@ private fun formatMinutes(min: Long): String = when {
 
 /** 충전·과열 알림 켜기/끄기 + 기준 설정 */
 @Composable
-private fun GuardCard() {
+fun GuardCard() {
     val context = LocalContext.current
     var enabled by remember { mutableStateOf(GuardSettings.isEnabled(context)) }
     var chargeLimit by remember { mutableStateOf(GuardSettings.chargeLimit(context)) }

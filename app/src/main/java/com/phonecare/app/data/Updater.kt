@@ -43,6 +43,11 @@ object Updater {
         }
     }
 
+    /** 다음 확인 때 30분 간격을 무시하고 바로 확인 */
+    fun resetThrottle() {
+        lastCheck = 0L
+    }
+
     /** 새 버전이 있으면 정보를, 없으면 null (네트워크 실패도 null) */
     fun check(@Suppress("UNUSED_PARAMETER") context: Context): UpdateInfo? {
         val now = System.currentTimeMillis()

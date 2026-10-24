@@ -53,3 +53,23 @@ fun agoText(time: Long): String {
         else -> "${min / (60 * 24)}일 전"
     }
 }
+
+/** 파일을 알맞은 앱(갤러리·동영상·문서 뷰어)으로 열어 미리 보기 */
+fun Context.openFilePreview(path: String) {
+    try {
+        val file = java.io.File(path)
+        if (!file.exists()) {
+            android.widget.Toast.makeText(this, "파일을 찾을 수 없어요", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+        val ext = path.substringAfterLast('.', "").lowercase()
+        val mime = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "*/*"
+        val view = Intent(Intent.ACTION_VIEW)
+            .setDataAndType(uri, mime)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(Intent.createChooser(view, "미리 보기").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    } catch (e: Exception) {
+        android.widget.Toast.makeText(this, "이 파일을 열 수 있는 앱이 없어요", android.widget.Toast.LENGTH_SHORT).show()
+    }
+}
