@@ -46,7 +46,8 @@ jobs:
         run: |
           chmod +x gradlew
           set -o pipefail
-          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
+          # 직접 설치용: 정식 출시(release) 빌드 — 개발용(debug)이 아니라 보안상 안전
+          ./gradlew assembleDirectRelease --no-daemon --stacktrace 2>&1 | tee build.log
 
       # 커밋 메시지에 [lint]가 있으면 코드 검사 실행 → 결과를 '사전 릴리스'로 올림 (앱 업데이트에는 안 잡힘)
       - name: Lint check
@@ -54,7 +55,7 @@ jobs:
         env:
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
-          ./gradlew lintDebug --no-daemon
+          ./gradlew lintDirectRelease --no-daemon
           cp app/build/lint-results.txt lint-results.txt || echo "no report" > lint-results.txt
 
       - uses: softprops/action-gh-release@v2
@@ -65,8 +66,17 @@ jobs:
           prerelease: true
           files: lint-results.txt
 
+      # 커밋 메시지에 [store]가 있으면 플레이 스토어 업로드용 .aab도 함께 만듦
+      - name: Build store bundle
+        if: contains(github.event.head_commit.message, '[store]')
+        env:
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          ./gradlew bundleStoreRelease --no-daemon
+          cp app/build/outputs/bundle/storeRelease/app-store-release.aab PhoneCare-store.aab
+
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk PhoneCare.apk
+        run: cp app/build/outputs/apk/direct/release/app-direct-release.apk PhoneCare.apk
 
       - uses: actions/upload-artifact@v4
         with:
@@ -78,7 +88,9 @@ jobs:
         with:
           tag_name: build-${{ github.run_number }}
           name: PhoneCare build ${{ github.run_number }}
-          files: PhoneCare.apk
+          files: |
+            PhoneCare.apk
+            PhoneCare-store.aab
 
       # 빌드가 실패하면 오류 로그를 '사전 릴리스'로 올려서 원인을 바로 확인 (앱 업데이트에는 안 잡힘)
       - name: Collect failure log

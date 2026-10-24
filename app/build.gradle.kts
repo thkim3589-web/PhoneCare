@@ -12,8 +12,8 @@ android {
         applicationId = "com.phonecare.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 24
-        versionName = "3.9"
+        versionCode = 25
+        versionName = "4.0"
         // GitHub 빌드 번호 (자동 업데이트 비교용, 직접 빌드하면 0)
         buildConfigField("int", "BUILD_NUMBER", System.getenv("GITHUB_RUN_NUMBER") ?: "0")
     }
@@ -39,6 +39,19 @@ android {
     }
 
     val signKey = if (releaseStore != null) signingConfigs.getByName("official") else signingConfigs.getByName("debug")
+
+    // 배포 경로 두 가지: direct = 직접 설치(앱 안 자동 업데이트), store = 플레이 스토어용(자동 업데이트·일부 권한 제외)
+    flavorDimensions += "dist"
+    productFlavors {
+        create("direct") {
+            dimension = "dist"
+            buildConfigField("boolean", "STORE", "false")
+        }
+        create("store") {
+            dimension = "dist"
+            buildConfigField("boolean", "STORE", "true")
+        }
+    }
 
     buildTypes {
         debug {

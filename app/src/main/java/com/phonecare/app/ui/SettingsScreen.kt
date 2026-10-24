@@ -145,8 +145,9 @@ fun SettingsScreen(onClose: () -> Unit, onOpenSetup: () -> Unit, onOpenGuide: ()
                         if (BuildConfig.BUILD_NUMBER > 0) " (빌드 ${BuildConfig.BUILD_NUMBER})" else "",
                     style = MaterialTheme.typography.bodyLarge,
                 )
+                if (BuildConfig.STORE) Hint("새 버전은 플레이 스토어에서 자동으로 업데이트돼요.")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
+                    if (!BuildConfig.STORE) OutlinedButton(
                         enabled = !checking,
                         onClick = {
                             checking = true
@@ -168,6 +169,17 @@ fun SettingsScreen(onClose: () -> Unit, onOpenSetup: () -> Unit, onOpenGuide: ()
                 OutlinedButton(onClick = { Changelog.share(context, Changelog.local(context).take(3)) }) {
                     Text("📤 폰케어 소개·업데이트 소식 공유")
                 }
+                OutlinedButton(onClick = {
+                    try {
+                        context.startActivity(
+                            android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse("https://github.com/thkim3589-web/PhoneCare/blob/main/docs/privacy-policy.md"),
+                            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    } catch (e: Exception) {
+                    }
+                }) { Text("개인정보처리방침") }
                 Hint("🔒 파일·사진·사용 기록 분석은 모두 휴대폰 안에서만 이뤄지고 외부로 보내지 않아요. 인터넷은 새 버전 확인과 다운로드에만 써요.")
             }
             Spacer(Modifier.height(12.dp))

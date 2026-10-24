@@ -54,7 +54,7 @@ fun hasNotificationPermission(c: Context): Boolean =
     }
 
 /** 필요한 권한이 하나라도 빠졌는지 */
-fun isSetupIncomplete(c: Context): Boolean =
+fun isSetupIncomplete(c: Context): Boolean = // (앱 설치 허용은 필수가 아니라 제외)
     !StorageScanner.hasAccess(c) || !AppUsage.hasUsageAccess(c) || !hasNotificationPermission(c)
 
 /** 첫 실행 안내: 필요한 권한을 한 화면에서 차례로 허용 */
@@ -65,13 +65,13 @@ fun SetupScreen(resumeTick: Int, onFinish: () -> Unit) {
     var storage by remember { mutableStateOf(StorageScanner.hasAccess(context)) }
     var usage by remember { mutableStateOf(AppUsage.hasUsageAccess(context)) }
     var notif by remember { mutableStateOf(hasNotificationPermission(context)) }
-    var install by remember { mutableStateOf(Updater.canInstall(context)) }
+    var install by remember { mutableStateOf(com.phonecare.app.BuildConfig.STORE || Updater.canInstall(context)) }
 
     fun refresh() {
         storage = StorageScanner.hasAccess(context)
         usage = AppUsage.hasUsageAccess(context)
         notif = hasNotificationPermission(context)
-        install = Updater.canInstall(context)
+        install = com.phonecare.app.BuildConfig.STORE || Updater.canInstall(context)
     }
 
     // 설정 화면에서 돌아오면 상태 갱신
@@ -80,7 +80,9 @@ fun SetupScreen(resumeTick: Int, onFinish: () -> Unit) {
     val legacyStorage = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { refresh() }
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { refresh() }
 
-    val grantedCount = listOf(storage, usage, notif, install).count { it }
+    // 스토어 버전은 '앱 설치 허용'이 필요 없음
+    val permTotal = if (com.phonecare.app.BuildConfig.STORE) 3 else 4
+    val grantedCount = listOf(storage, usage, notif).count { it } + if (!com.phonecare.app.BuildConfig.STORE && install) 1 else 0
 
     Column(
         Modifier
@@ -98,11 +100,11 @@ fun SetupScreen(resumeTick: Int, onFinish: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            "$grantedCount / 4 허용됨",
+            "$grantedCount / $permTotal 허용됨",
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
         )
-        SoftBar(progress = { grantedCount / 4f }, modifier = Modifier.fillMaxWidth().height(6.dp))
+        SoftBar(progress = { grantedCount / permTotal.toFloat() }, modifier = Modifier.fillMaxWidth().height(6.dp))
 
         PermRow(
             symbol = "💾", tint = brand.start, title = "모든 파일 접근",
@@ -131,11 +133,13 @@ fun SetupScreen(resumeTick: Int, onFinish: () -> Unit) {
                 AppUsage.openAppInfo(context, context.packageName)
             }
         }
-        PermRow(
-            symbol = "🚀", tint = ScoreGood, title = "앱 설치 허용",
-            desc = "새 버전을 버튼 한 번으로 업데이트하는 데 필요해요",
-            granted = install,
-        ) { Updater.openInstallPermission(context) }
+        if (!com.phonecare.app.BuildConfig.STORE) {
+            PermRow(
+                symbol = "🚀", tint = ScoreGood, title = "앱 설치 허용",
+                desc = "새 버전을 버튼 한 번으로 업데이트하는 데 필요해요",
+                granted = install,
+            ) { Updater.openInstallPermission(context) }
+        }
 
         Text(
             "🔒 파일·사진·사용 기록 분석은 모두 휴대폰 안에서만 이뤄지고, 외부로 보내지 않아요.",
@@ -143,9 +147,9 @@ fun SetupScreen(resumeTick: Int, onFinish: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Button(onClick = onFinish, modifier = Modifier.fillMaxWidth().height(54.dp)) {
-            Text(if (grantedCount == 4) "시작하기" else "이대로 시작하기", fontWeight = FontWeight.Bold)
+            Text(if (grantedCount == permTotal) "시작하기" else "이대로 시작하기", fontWeight = FontWeight.Bold)
         }
-        if (grantedCount < 4) {
+        if (grantedCount < permTotal) {
             TextButton(onClick = onFinish, modifier = Modifier.align(Alignment.CenterHorizontally)) {
                 Text("나중에 할게요")
             }

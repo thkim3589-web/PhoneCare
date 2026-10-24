@@ -50,6 +50,7 @@ object Updater {
 
     /** 새 버전이 있으면 정보를, 없으면 null (네트워크 실패도 null) */
     fun check(@Suppress("UNUSED_PARAMETER") context: Context): UpdateInfo? {
+        if (BuildConfig.STORE) return null // 스토어 버전은 플레이 스토어가 업데이트
         val now = System.currentTimeMillis()
         if (now - lastCheck < CHECK_INTERVAL_MS) return lastResult
         return try {

@@ -434,15 +434,21 @@ fun GuardCard() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             TextButton(onClick = {
-                try {
-                    context.startActivity(
-                        Intent(
-                            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                            Uri.parse("package:${context.packageName}"),
-                        ),
-                    )
-                } catch (e: Exception) {
+                if (com.phonecare.app.BuildConfig.STORE) {
+                    // 스토어 정책: 직접 요청 대신 목록 화면에서 '폰케어'를 고르도록 안내
+                    android.widget.Toast.makeText(context, "목록에서 '폰케어'를 찾아 '최적화 안 함'으로 바꿔주세요", android.widget.Toast.LENGTH_LONG).show()
                     context.openSettings(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                } else {
+                    try {
+                        context.startActivity(
+                            Intent(
+                                Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                Uri.parse("package:${context.packageName}"),
+                            ),
+                        )
+                    } catch (e: Exception) {
+                        context.openSettings(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                    }
                 }
             }) { Text("배터리 최적화 제외하기") }
         }

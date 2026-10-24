@@ -7,7 +7,9 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
+import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.MimeTypes
 import androidx.media3.effect.Presentation
 import androidx.media3.transformer.Composition
@@ -50,6 +52,7 @@ sealed class CompressResult {
 }
 
 /** 큰 동영상 찾기 + 화질을 조금 낮춰 용량 줄이기 (원본은 휴지통으로) */
+@OptIn(UnstableApi::class)
 object VideoCompressor {
 
     private const val MIN_SIZE = 50L * 1024 * 1024
