@@ -12,8 +12,8 @@ android {
         applicationId = "com.phonecare.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 23
-        versionName = "3.8"
+        versionCode = 24
+        versionName = "3.9"
         // GitHub 빌드 번호 (자동 업데이트 비교용, 직접 빌드하면 0)
         buildConfigField("int", "BUILD_NUMBER", System.getenv("GITHUB_RUN_NUMBER") ?: "0")
     }
@@ -81,4 +81,8 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-core")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
+    // 동영상 압축 (구글 공식 Media3 변환 라이브러리)
+    implementation("androidx.media3:media3-transformer:1.4.1")
+    implementation("androidx.media3:media3-effect:1.4.1")
+    implementation("androidx.media3:media3-common:1.4.1")
 }

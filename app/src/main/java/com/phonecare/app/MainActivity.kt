@@ -301,7 +301,7 @@ private fun MainApp(resumeTick: Int) {
                                 tab = 2
                             }
                             NAV_TRASH -> {
-                                com.phonecare.app.ui.ScanState.storageSection = 3
+                                com.phonecare.app.ui.ScanState.storageSection = 4
                                 tab = 2
                             }
                             NAV_WIDGET -> if (!PhoneCareWidget.requestPin(context)) {

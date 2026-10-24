@@ -102,7 +102,7 @@ private enum class FileSort(val label: String) {
     }
 }
 
-private val sectionLabels = listOf("정리 후보", "중복 사진", "💬 메신저", "휴지통")
+private val sectionLabels = listOf("정리 후보", "중복 사진", "💬 메신저", "🎬 동영상", "휴지통")
 
 /** 보호 추천 폴더 (있는 것만 보여줌) */
 private val suggestedFolders = listOf(
@@ -215,6 +215,7 @@ fun StorageScreen(resumeTick: Int) {
                 0 -> CleanupSection(protectedList, Modifier.weight(1f))
                 1 -> DuplicatesSection(Modifier.weight(1f))
                 2 -> MessengerSection(protectedList, Modifier.weight(1f))
+                3 -> VideoSection(protectedList, Modifier.weight(1f))
                 else -> TrashSection(resumeTick, Modifier.weight(1f))
             }
         }
