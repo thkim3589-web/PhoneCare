@@ -13,6 +13,7 @@ data class PhotoItem(
     val taken: Long,
     val width: Int,
     val height: Int,
+    val modified: Long = 0L,
 )
 
 enum class GroupType(val label: String) {
@@ -51,13 +52,16 @@ object PhotoDuplicates {
         }
         val total = photos.size
         var done = 0
+        // 이전에 분석한 사진은 저장해 둔 결과를 다시 씀 → 두 번째부터는 새 사진만 분석
+        val cache = HashCache(File(context.filesDir, "photo_hash_cache.tsv"))
+        cache.load()
         val groups = ArrayList<PhotoGroup>()
         val inExact = HashSet<String>()
 
         // 1) 완전히 같은 사진: 크기가 같은 것끼리만 해시 비교
         photos.groupBy { it.size }.values.filter { it.size > 1 }.forEach { sameSize ->
             if (!isActive()) return emptyList()
-            sameSize.groupBy { md5(it.path) }
+            sameSize.groupBy { cache.md5(it) { md5(it.path) } }
                 .filter { (hash, list) -> hash != null && list.size > 1 }
                 .values
                 .forEach { list ->
@@ -91,8 +95,11 @@ object PhotoDuplicates {
         }
 
         for (p in remaining) {
-            if (!isActive()) return emptyList()
-            val h = dHash(p.path)
+            if (!isActive()) {
+                cache.save(photos) // 중단해도 여기까지 분석한 건 다음에 다시 씀
+                return emptyList()
+            }
+            val h = cache.dHash(p) { dHash(p.path) }
             done++
             if (done % 20 == 0) onProgress(done, total)
             val ph = prevHash
@@ -105,6 +112,7 @@ object PhotoDuplicates {
             prevTaken = p.taken
         }
         closeCluster()
+        cache.save(photos)
         onProgress(total, total)
 
         // 정리 효과가 큰 묶음부터
@@ -137,7 +145,7 @@ object PhotoDuplicates {
                     val size = c.getLong(iSize)
                     if (size <= 0) continue
                     val taken = c.getLong(iTaken).takeIf { it > 0 } ?: (c.getLong(iMod) * 1000)
-                    result.add(PhotoItem(path, size, taken, c.getInt(iW), c.getInt(iH)))
+                    result.add(PhotoItem(path, size, taken, c.getInt(iW), c.getInt(iH), c.getLong(iMod)))
                 }
             }
         } catch (e: Exception) {
@@ -193,4 +201,68 @@ object PhotoDuplicates {
     }
 
     private fun luma(c: Int): Int = ((c shr 16 and 0xFF) * 299 + (c shr 8 and 0xFF) * 587 + (c and 0xFF) * 114) / 1000
+
+    /** 사진별 분석 결과 저장소 (경로·크기·수정시각이 같으면 재사용) */
+    private class HashCache(private val file: File) {
+        private class Entry(val size: Long, val modified: Long, var md5: String?, var dh: Long?, var dhDone: Boolean)
+
+        private val map = HashMap<String, Entry>()
+
+        fun load() {
+            try {
+                if (!file.exists()) return
+                file.forEachLine { line ->
+                    val f = line.split('\t')
+                    if (f.size < 5) return@forEachLine
+                    val dhText = f[4]
+                    map[f[0]] = Entry(
+                        size = f[1].toLongOrNull() ?: return@forEachLine,
+                        modified = f[2].toLongOrNull() ?: return@forEachLine,
+                        md5 = f[3].takeIf { it != "-" },
+                        dh = dhText.toLongOrNull(),
+                        dhDone = dhText != "-",
+                    )
+                }
+            } catch (e: Exception) {
+                map.clear()
+            }
+        }
+
+        private fun entry(p: PhotoItem): Entry {
+            val e = map[p.path]
+            if (e != null && e.size == p.size && e.modified == p.modified) return e
+            return Entry(p.size, p.modified, null, null, false).also { map[p.path] = it }
+        }
+
+        fun md5(p: PhotoItem, compute: () -> String?): String? {
+            val e = entry(p)
+            if (e.md5 == null) e.md5 = compute()
+            return e.md5
+        }
+
+        fun dHash(p: PhotoItem, compute: () -> Long?): Long? {
+            val e = entry(p)
+            if (!e.dhDone) {
+                e.dh = compute()
+                e.dhDone = true
+            }
+            return e.dh
+        }
+
+        /** 지금 있는 사진 것만 저장 (지워진 사진 기록은 정리) */
+        fun save(current: List<PhotoItem>) {
+            try {
+                val sb = StringBuilder()
+                for (p in current) {
+                    val e = map[p.path] ?: continue
+                    if (e.size != p.size || e.modified != p.modified) continue
+                    sb.append(p.path).append('\t').append(e.size).append('\t').append(e.modified).append('\t')
+                        .append(e.md5 ?: "-").append('\t')
+                        .append(if (!e.dhDone) "-" else (e.dh?.toString() ?: "x")).append('\n')
+                }
+                file.writeText(sb.toString())
+            } catch (e: Exception) {
+            }
+        }
+    }
 }

@@ -60,8 +60,78 @@ object StorageScanner {
 
     /** 내장 저장소를 훑어서 정리 후보 파일을 찾는다. (시간이 걸리므로 백그라운드에서 호출) */
     fun scan(
+        context: Context,
         protectedFolders: List<String> = emptyList(),
         isActive: () -> Boolean = { true },
+        onProgress: (Int) -> Unit,
+    ): List<FoundFile> {
+        // 1) 빠른 검사: 안드로이드가 이미 만들어 둔 파일 목록(미디어 색인) 사용 → 수 초 안에 끝남
+        scanIndex(context, protectedFolders, isActive, onProgress)?.let { return it }
+        // 2) 색인을 못 쓰면 폴더를 직접 훑음 (느림)
+        return scanWalk(protectedFolders, isActive, onProgress)
+    }
+
+    private fun categorize(path: String, name: String, size: Long, modified: Long, downloadsPath: String): FileCategory? {
+        val lowerPath = path.lowercase()
+        return when {
+            name.lowercase().endsWith(".apk") -> FileCategory.APK
+            lowerPath.contains("/screenshots/") -> FileCategory.SCREENSHOT
+            path.startsWith(downloadsPath) && daysAgo(modified) > OLD_DOWNLOAD_DAYS -> FileCategory.OLD_DOWNLOAD
+            size >= LARGE_FILE_BYTES -> FileCategory.LARGE
+            else -> null
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun scanIndex(
+        context: Context,
+        protectedFolders: List<String>,
+        isActive: () -> Boolean,
+        onProgress: (Int) -> Unit,
+    ): List<FoundFile>? {
+        val root = Environment.getExternalStorageDirectory().absolutePath
+        val androidDir = "$root/Android/"
+        val downloadsPath = File(root, Environment.DIRECTORY_DOWNLOADS).absolutePath + "/"
+        val result = ArrayList<FoundFile>()
+        var count = 0
+        try {
+            val uri = android.provider.MediaStore.Files.getContentUri("external")
+            val cols = arrayOf(
+                android.provider.MediaStore.Files.FileColumns.DATA,
+                android.provider.MediaStore.Files.FileColumns.SIZE,
+                android.provider.MediaStore.Files.FileColumns.DATE_MODIFIED,
+            )
+            context.contentResolver.query(uri, cols, "${cols[1]} > 0", null, null)?.use { c ->
+                if (c.count == 0) return null
+                val iData = c.getColumnIndexOrThrow(cols[0])
+                val iSize = c.getColumnIndexOrThrow(cols[1])
+                val iMod = c.getColumnIndexOrThrow(cols[2])
+                while (c.moveToNext()) {
+                    if (!isActive()) return emptyList()
+                    count++
+                    if (count % 500 == 0) onProgress(count)
+                    val path = c.getString(iData) ?: continue
+                    if (!path.startsWith(root) || path.startsWith(androidDir) || path.contains("/.")) continue
+                    if (ProtectedFolders.isProtected(path, protectedFolders)) continue
+                    val name = path.substringAfterLast('/')
+                    val size = c.getLong(iSize)
+                    val modified = c.getLong(iMod) * 1000
+                    val category = categorize(path, name, size, modified, downloadsPath) ?: continue
+                    if (!File(path).exists()) continue // 색인에만 남은 지워진 파일 제외
+                    val folder = path.substringBeforeLast('/', "").removePrefix(root).ifEmpty { "/" }
+                    result.add(FoundFile(path, name, folder, size, modified, category))
+                }
+            } ?: return null
+        } catch (e: Exception) {
+            return null
+        }
+        onProgress(count)
+        return result.sortedByDescending { it.size }
+    }
+
+    private fun scanWalk(
+        protectedFolders: List<String>,
+        isActive: () -> Boolean,
         onProgress: (Int) -> Unit,
     ): List<FoundFile> {
         val root = Environment.getExternalStorageDirectory()
@@ -87,15 +157,7 @@ object StorageScanner {
                 val name = file.name
                 val size = file.length()
                 val modified = file.lastModified()
-                val lowerPath = path.lowercase()
-
-                val category = when {
-                    name.lowercase().endsWith(".apk") -> FileCategory.APK
-                    lowerPath.contains("/screenshots/") -> FileCategory.SCREENSHOT
-                    path.startsWith(downloadsPath) && daysAgo(modified) > OLD_DOWNLOAD_DAYS -> FileCategory.OLD_DOWNLOAD
-                    size >= LARGE_FILE_BYTES -> FileCategory.LARGE
-                    else -> null
-                } ?: return@forEach
+                val category = categorize(path, name, size, modified, downloadsPath) ?: return@forEach
 
                 val folder = (file.parentFile?.absolutePath ?: "")
                     .removePrefix(rootPath).ifEmpty { "/" }

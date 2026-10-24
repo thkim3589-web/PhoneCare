@@ -294,7 +294,7 @@ private fun CleanupSection(protectedFolders: List<String>, modifier: Modifier = 
         ScanState.cleanupJob = ScanState.scope.launch {
             try {
                 val found = withContext(Dispatchers.IO) {
-                    StorageScanner.scan(protectedFolders, isActive = { isActive }) { n -> scannedCount = n }
+                    StorageScanner.scan(context, protectedFolders, isActive = { isActive }) { n -> scannedCount = n }
                 }
                 if (isActive) {
                     results = found
