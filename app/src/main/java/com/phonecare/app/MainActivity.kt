@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
@@ -43,9 +44,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.phonecare.app.data.Changelog
 import com.phonecare.app.data.TrashManager
 import com.phonecare.app.service.GuardSettings
 import com.phonecare.app.ui.AppsTab
+import com.phonecare.app.ui.GuideScreen
 import com.phonecare.app.ui.HomeScreen
 import com.phonecare.app.ui.PerformanceScreen
 import com.phonecare.app.ui.PhoneCareTheme
@@ -54,6 +57,7 @@ import com.phonecare.app.ui.SetupScreen
 import com.phonecare.app.ui.StorageScreen
 import com.phonecare.app.ui.TipsScreen
 import com.phonecare.app.ui.UpdateBanner
+import com.phonecare.app.ui.WhatsNewDialog
 import com.phonecare.app.util.CrashLog
 import com.phonecare.app.widget.PhoneCareWidget
 
@@ -62,6 +66,9 @@ const val NAV_SETUP = 99
 
 /** 홈 화면 추천에서 "위젯 추가"를 눌렀을 때 쓰는 특별 번호 */
 const val NAV_WIDGET = 98
+
+/** 사용 가이드 열기 */
+const val NAV_GUIDE = 97
 
 class MainActivity : ComponentActivity() {
 
@@ -112,6 +119,19 @@ private fun MainApp(resumeTick: Int) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var showSetup by rememberSaveable { mutableStateOf(!SetupPrefs.isDone(context)) }
     var crash by remember { mutableStateOf(CrashLog.read(context)) }
+    var showGuide by rememberSaveable { mutableStateOf(false) }
+    // 업데이트 후 처음 열면 "새로 바뀐 점" (새로 설치한 경우는 안내 화면 뒤 조용히 기록만)
+    var whatsNew by remember {
+        val seen = Changelog.lastSeen(context)
+        val current = BuildConfig.VERSION_CODE
+        val notes = if (SetupPrefs.isDone(context) && seen < current) {
+            Changelog.local(context).filter { it.code > seen && it.code <= current }.take(if (seen == 0) 1 else 5)
+        } else {
+            emptyList()
+        }
+        if (notes.isEmpty() && SetupPrefs.isDone(context)) Changelog.markSeen(context, current)
+        mutableStateOf(notes.takeIf { it.isNotEmpty() })
+    }
 
     if (showSetup) {
         Box(
@@ -122,8 +142,22 @@ private fun MainApp(resumeTick: Int) {
         ) {
             SetupScreen(resumeTick) {
                 SetupPrefs.setDone(context)
+                Changelog.markSeen(context, BuildConfig.VERSION_CODE)
                 showSetup = false
             }
+        }
+        return
+    }
+
+    if (showGuide) {
+        BackHandler { showGuide = false }
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .systemBarsPadding(),
+        ) {
+            GuideScreen(onClose = { showGuide = false })
         }
         return
     }
@@ -164,6 +198,7 @@ private fun MainApp(resumeTick: Int) {
                     0 -> HomeScreen(resumeTick) { target ->
                         when (target) {
                             NAV_SETUP -> showSetup = true
+                            NAV_GUIDE -> showGuide = true
                             NAV_WIDGET -> if (!PhoneCareWidget.requestPin(context)) {
                                 Toast.makeText(
                                     context,
@@ -177,8 +212,17 @@ private fun MainApp(resumeTick: Int) {
                     1 -> PerformanceScreen(resumeTick)
                     2 -> StorageScreen(resumeTick)
                     3 -> AppsTab(resumeTick)
-                    else -> TipsScreen()
+                    else -> TipsScreen(onOpenGuide = { showGuide = true })
                 }
+            }
+        }
+    }
+
+    whatsNew?.let { notes ->
+        if (crash == null) {
+            WhatsNewDialog(notes) {
+                Changelog.markSeen(context, BuildConfig.VERSION_CODE)
+                whatsNew = null
             }
         }
     }

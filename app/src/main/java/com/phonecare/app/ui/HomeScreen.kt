@@ -90,6 +90,9 @@ fun HomeScreen(resumeTick: Int, onNavigate: (Int) -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            androidx.compose.material3.FilledTonalButton(onClick = { onNavigate(com.phonecare.app.NAV_GUIDE) }) {
+                Text("📖 가이드")
+            }
         }
 
         // ---------- 히어로: 점수 ----------

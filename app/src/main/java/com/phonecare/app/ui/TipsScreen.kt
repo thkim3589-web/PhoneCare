@@ -103,7 +103,7 @@ private fun saveDone(context: Context, done: Set<String>) {
 }
 
 @Composable
-fun TipsScreen() {
+fun TipsScreen(onOpenGuide: () -> Unit = {}) {
     val context = LocalContext.current
     var done by remember { mutableStateOf(loadDone(context)) }
 
@@ -117,6 +117,23 @@ fun TipsScreen() {
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        item {
+            PremiumCard(Modifier.fillMaxWidth(), onClick = onOpenGuide) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconBadge("📖", LocalBrand.current.start)
+                    androidx.compose.foundation.layout.Spacer(Modifier.padding(start = 12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("폰케어 사용 가이드", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "기능별 사용 방법 · 자주 묻는 질문 · 업데이트 내역",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text("열기 ›", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+                }
+            }
+        }
         item {
             ScreenTitle("최적화 체크리스트", "실제로 효과 있는 설정만 모았어요. 해본 항목은 체크하세요")
         }

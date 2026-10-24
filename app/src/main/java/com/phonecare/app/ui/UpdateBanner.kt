@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.phonecare.app.data.Changelog
 import com.phonecare.app.data.UpdateInfo
 import com.phonecare.app.data.Updater
 import kotlinx.coroutines.Dispatchers
@@ -52,6 +53,7 @@ fun UpdateBanner(resumeTick: Int) {
     var progress by remember { mutableStateOf(0f) }
     var readyApk by remember { mutableStateOf<File?>(null) }
     var keySwitchPath by remember { mutableStateOf<String?>(null) }
+    var upcoming by remember { mutableStateOf<List<com.phonecare.app.data.ReleaseNote>?>(null) }
 
     LaunchedEffect(resumeTick) {
         if (!downloading) info = withContext(Dispatchers.IO) { Updater.check(context) }
@@ -101,6 +103,12 @@ fun UpdateBanner(resumeTick: Int) {
             } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = { dismissedTag = current.tag }) { Text("나중에") }
+                    TextButton(onClick = {
+                        scope.launch {
+                            val mine = com.phonecare.app.BuildConfig.VERSION_CODE
+                            upcoming = withContext(Dispatchers.IO) { Changelog.remote() }.filter { it.code > mine }
+                        }
+                    }) { Text("업데이트 내용") }
                     Spacer(Modifier.weight(1f))
                     Button(onClick = {
                         val apk = readyApk
@@ -166,4 +174,6 @@ fun UpdateBanner(resumeTick: Int) {
             },
         )
     }
+
+    upcoming?.let { notes -> UpcomingNotesDialog(notes) { upcoming = null } }
 }
