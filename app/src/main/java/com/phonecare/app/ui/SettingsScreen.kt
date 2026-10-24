@@ -134,7 +134,7 @@ fun SettingsScreen(onClose: () -> Unit, onOpenSetup: () -> Unit, onOpenGuide: ()
 
             // ---------- 권한 ----------
             SettingsGroup("🔑", "권한") {
-                Hint("파일 접근·사용 기록·알림·앱 설치 권한 상태를 확인하고 다시 허용할 수 있어요.")
+                Hint("파일 접근·사용 기록·알림 권한 상태를 확인하고 다시 허용할 수 있어요.")
                 OutlinedButton(onClick = onOpenSetup) { Text("권한 설정 다시 보기") }
             }
 

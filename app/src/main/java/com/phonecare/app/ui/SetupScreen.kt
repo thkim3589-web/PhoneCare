@@ -38,7 +38,6 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.phonecare.app.data.AppUsage
 import com.phonecare.app.data.StorageScanner
-import com.phonecare.app.data.Updater
 
 object SetupPrefs {
     private const val PREFS = "setup"
@@ -54,7 +53,7 @@ fun hasNotificationPermission(c: Context): Boolean =
     }
 
 /** 필요한 권한이 하나라도 빠졌는지 */
-fun isSetupIncomplete(c: Context): Boolean = // (앱 설치 허용은 필수가 아니라 제외)
+fun isSetupIncomplete(c: Context): Boolean =
     !StorageScanner.hasAccess(c) || !AppUsage.hasUsageAccess(c) || !hasNotificationPermission(c)
 
 /** 첫 실행 안내: 필요한 권한을 한 화면에서 차례로 허용 */
@@ -65,13 +64,11 @@ fun SetupScreen(resumeTick: Int, onFinish: () -> Unit) {
     var storage by remember { mutableStateOf(StorageScanner.hasAccess(context)) }
     var usage by remember { mutableStateOf(AppUsage.hasUsageAccess(context)) }
     var notif by remember { mutableStateOf(hasNotificationPermission(context)) }
-    var install by remember { mutableStateOf(com.phonecare.app.BuildConfig.STORE || Updater.canInstall(context)) }
 
     fun refresh() {
         storage = StorageScanner.hasAccess(context)
         usage = AppUsage.hasUsageAccess(context)
         notif = hasNotificationPermission(context)
-        install = com.phonecare.app.BuildConfig.STORE || Updater.canInstall(context)
     }
 
     // 설정 화면에서 돌아오면 상태 갱신
@@ -80,9 +77,8 @@ fun SetupScreen(resumeTick: Int, onFinish: () -> Unit) {
     val legacyStorage = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { refresh() }
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { refresh() }
 
-    // 스토어 버전은 '앱 설치 허용'이 필요 없음
-    val permTotal = if (com.phonecare.app.BuildConfig.STORE) 3 else 4
-    val grantedCount = listOf(storage, usage, notif).count { it } + if (!com.phonecare.app.BuildConfig.STORE && install) 1 else 0
+    val permTotal = 3
+    val grantedCount = listOf(storage, usage, notif).count { it }
 
     Column(
         Modifier
@@ -132,13 +128,6 @@ fun SetupScreen(resumeTick: Int, onFinish: () -> Unit) {
             } else {
                 AppUsage.openAppInfo(context, context.packageName)
             }
-        }
-        if (!com.phonecare.app.BuildConfig.STORE) {
-            PermRow(
-                symbol = "🚀", tint = ScoreGood, title = "앱 설치 허용",
-                desc = "새 버전을 버튼 한 번으로 업데이트하는 데 필요해요",
-                granted = install,
-            ) { Updater.openInstallPermission(context) }
         }
 
         Text(
