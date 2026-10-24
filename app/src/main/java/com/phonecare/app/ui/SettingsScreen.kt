@@ -34,6 +34,7 @@ import com.phonecare.app.BuildConfig
 import com.phonecare.app.data.Changelog
 import com.phonecare.app.data.TrashManager
 import com.phonecare.app.data.Updater
+import com.phonecare.app.service.WeeklyCheck
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -112,6 +113,24 @@ fun SettingsScreen(onClose: () -> Unit, onOpenSetup: () -> Unit, onOpenGuide: ()
 
             // ---------- 알림 ----------
             GuardCard()
+            SettingsGroup("📊", "주간 점검 알림") {
+                var weeklyOn by remember { mutableStateOf(WeeklyCheck.isEnabled(context)) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "매주 일요일 저녁, 정리할 파일과 주간 리포트를 알려줘요",
+                        Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    androidx.compose.material3.Switch(
+                        checked = weeklyOn,
+                        onCheckedChange = {
+                            weeklyOn = it
+                            WeeklyCheck.setEnabled(context, it)
+                        },
+                    )
+                }
+            }
 
             // ---------- 권한 ----------
             SettingsGroup("🔑", "권한") {

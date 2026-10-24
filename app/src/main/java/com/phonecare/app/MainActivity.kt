@@ -3,6 +3,7 @@ package com.phonecare.app
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.graphics.Color
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -50,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import com.phonecare.app.data.Changelog
 import com.phonecare.app.data.TrashManager
 import com.phonecare.app.service.GuardSettings
+import com.phonecare.app.service.WeeklyCheck
 import com.phonecare.app.ui.AppSettings
 import com.phonecare.app.ui.AppsTab
 import com.phonecare.app.ui.GuideScreen
@@ -59,6 +61,7 @@ import com.phonecare.app.ui.PhoneCareTheme
 import com.phonecare.app.ui.SetupPrefs
 import com.phonecare.app.ui.SetupScreen
 import com.phonecare.app.ui.SettingsScreen
+import com.phonecare.app.ui.ReportScreen
 import com.phonecare.app.ui.LocalBrand
 import com.phonecare.app.ui.StorageScreen
 import com.phonecare.app.ui.TipsScreen
@@ -82,6 +85,14 @@ const val NAV_TRASH = 96
 /** 설정 열기 */
 const val NAV_SETTINGS = 95
 
+/** 주간 리포트 열기 */
+const val NAV_REPORT = 94
+
+/** 알림에서 앱을 열 때 어떤 화면을 열지 */
+object NavRequest {
+    var report by mutableStateOf(false)
+}
+
 class MainActivity : ComponentActivity() {
 
     // 설정 화면에서 돌아올 때마다 값이 바뀌어 각 화면이 권한/목록을 다시 확인하게 함
@@ -102,6 +113,9 @@ class MainActivity : ComponentActivity() {
         }.start()
         // 충전·과열 알림이 켜져 있으면 감시 서비스 유지
         if (GuardSettings.isEnabled(this)) GuardSettings.start(this)
+        // 주간 점검 알림 예약 (켜져 있을 때, 이미 예약돼 있으면 그대로)
+        WeeklyCheck.schedule(this)
+        handleOpenIntent(intent)
         setContent {
             PhoneCareTheme {
                 // 테마를 직접 고른 경우 상태바 아이콘 색도 맞춤
@@ -116,6 +130,18 @@ class MainActivity : ComponentActivity() {
                 }
                 MainApp(resumeTick)
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleOpenIntent(intent)
+    }
+
+    private fun handleOpenIntent(intent: Intent?) {
+        if (intent?.getStringExtra(WeeklyCheck.EXTRA_OPEN) == WeeklyCheck.OPEN_REPORT) {
+            NavRequest.report = true
+            intent.removeExtra(WeeklyCheck.EXTRA_OPEN)
         }
     }
 
@@ -144,6 +170,13 @@ private fun MainApp(resumeTick: Int) {
     var crash by remember { mutableStateOf(CrashLog.read(context)) }
     var showGuide by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
+    var showReport by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(NavRequest.report) {
+        if (NavRequest.report) {
+            NavRequest.report = false
+            showReport = true
+        }
+    }
     // 업데이트 후 처음 열면 "새로 바뀐 점" (새로 설치한 경우는 안내 화면 뒤 조용히 기록만)
     var whatsNew by remember {
         val seen = Changelog.lastSeen(context)
@@ -169,6 +202,19 @@ private fun MainApp(resumeTick: Int) {
                 Changelog.markSeen(context, BuildConfig.VERSION_CODE)
                 showSetup = false
             }
+        }
+        return
+    }
+
+    if (showReport) {
+        BackHandler { showReport = false }
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .systemBarsPadding(),
+        ) {
+            ReportScreen(onClose = { showReport = false })
         }
         return
     }
@@ -244,6 +290,7 @@ private fun MainApp(resumeTick: Int) {
                             NAV_SETUP -> showSetup = true
                             NAV_GUIDE -> showGuide = true
                             NAV_SETTINGS -> showSettings = true
+                            NAV_REPORT -> showReport = true
                             NAV_TRASH -> {
                                 com.phonecare.app.ui.ScanState.storageSection = 3
                                 tab = 2

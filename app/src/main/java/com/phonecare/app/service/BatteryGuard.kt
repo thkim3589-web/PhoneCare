@@ -18,6 +18,7 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.phonecare.app.MainActivity
 import com.phonecare.app.R
+import com.phonecare.app.data.History
 import com.phonecare.app.widget.PhoneCareWidget
 import java.util.Locale
 
@@ -67,6 +68,10 @@ class BatteryGuardService : Service() {
     private var chargeAlerted = false
     private var lastHeatAlert = 0L
     private var lastStatusText = ""
+    private var lastHandleAt = 0L
+    private var wasPlugged: Boolean? = null
+    private var pendingHotMs = 0L
+    private var pendingFullMs = 0L
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) = handle(intent)
@@ -119,6 +124,21 @@ class BatteryGuardService : Service() {
         val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
         val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0
         val charging = plugged || status == BatteryManager.BATTERY_STATUS_CHARGING
+
+        // ----- 주간 리포트용 기록: 온도, 충전 습관 -----
+        val nowMs = System.currentTimeMillis()
+        val elapsed = if (lastHandleAt > 0) (nowMs - lastHandleAt).coerceIn(0, 10 * 60 * 1000L) else 0L
+        lastHandleAt = nowMs
+        if (wasPlugged == false && plugged) History.addChargeSession(this)
+        wasPlugged = plugged
+        if (charging && temp >= 40f) pendingHotMs += elapsed // 뜨거운 채로 충전
+        if (plugged && pct >= 95) pendingFullMs += elapsed   // 거의 다 찼는데 계속 꽂혀 있음
+        if (pendingHotMs >= 60_000 || pendingFullMs >= 60_000) {
+            History.addChargeMinutes(this, (pendingHotMs / 60_000).toInt(), (pendingFullMs / 60_000).toInt())
+            pendingHotMs %= 60_000
+            pendingFullMs %= 60_000
+        }
+        History.recordTemp(this, temp)
 
         // 상태 알림 갱신 (값이 바뀔 때만)
         val text = String.format(Locale.KOREA, "배터리 %d%% · %.1f°C%s", pct, temp, if (charging) " · 충전 중" else "")

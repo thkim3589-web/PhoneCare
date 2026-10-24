@@ -12,8 +12,8 @@ android {
         applicationId = "com.phonecare.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 21
-        versionName = "3.6"
+        versionCode = 22
+        versionName = "3.7"
         // GitHub 빌드 번호 (자동 업데이트 비교용, 직접 빌드하면 0)
         buildConfigField("int", "BUILD_NUMBER", System.getenv("GITHUB_RUN_NUMBER") ?: "0")
     }
@@ -80,4 +80,5 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-core")
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
 }

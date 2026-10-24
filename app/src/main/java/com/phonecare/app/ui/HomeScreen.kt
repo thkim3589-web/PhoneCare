@@ -66,6 +66,17 @@ fun HomeScreen(resumeTick: Int, onNavigate: (Int) -> Unit) {
             battery = DeviceInfo.battery(context)
             memory = DeviceInfo.memory(context)
             storage = DeviceInfo.storage()
+            // 주간 리포트용 기록 (내부에서 5~10분 간격으로만 저장)
+            val b = battery
+            val st = storage
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                if (b != null) com.phonecare.app.data.History.recordTemp(context, b.temperatureC)
+                if (st != null) {
+                    com.phonecare.app.data.History.recordSnapshot(
+                        context, DeviceInfo.score(b, memory, st), (st.usedRatio * 100).toInt(),
+                    )
+                }
+            }
             delay(5000)
         }
     }
@@ -153,6 +164,29 @@ fun HomeScreen(resumeTick: Int, onNavigate: (Int) -> Unit) {
                 modifier = Modifier.weight(1f),
                 onClick = { onNavigate(1) },
             )
+        }
+
+        // ---------- 주간 리포트 바로가기 ----------
+        var weekFreed by remember { mutableStateOf(0L) }
+        LaunchedEffect(resumeTick) {
+            weekFreed = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.phonecare.app.data.History.lastDays(context, 7).sumOf { it.freedBytes }.coerceAtLeast(0)
+            }
+        }
+        PremiumCard(Modifier.fillMaxWidth(), onClick = { onNavigate(com.phonecare.app.NAV_REPORT) }) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconBadge("📊", brand.end)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("주간 리포트", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        if (weekFreed > 0) "이번 주 ${formatBytes(weekFreed)} 확보 · 온도·점수·충전 습관" else "정리 기록·온도·점수·충전 습관 한눈에",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
 
         // ---------- 추천 조치 ----------

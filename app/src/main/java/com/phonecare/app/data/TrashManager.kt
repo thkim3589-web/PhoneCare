@@ -144,6 +144,7 @@ object TrashManager {
         save(context, items)
         // 갤러리에서 사라지도록 미디어 목록 갱신
         if (moved.isNotEmpty()) MediaScannerConnection.scanFile(context, moved.toTypedArray(), null, null)
+        if (moved.isNotEmpty()) History.recordFreed(context, freed, moved.size) // 주간 리포트용 기록
         moved to freed
     }
 
@@ -151,6 +152,7 @@ object TrashManager {
     fun restore(context: Context, ids: Set<String>): Int = synchronized(lock) {
         val items = load(context)
         val restoredPaths = ArrayList<String>()
+        var restoredBytes = 0L
         val remaining = items.filter { item ->
             if (item.id !in ids) return@filter true
             val src = File(item.trashPath)
@@ -163,6 +165,7 @@ object TrashManager {
             }
             if (src.exists() && moveFile(src, dest)) {
                 restoredPaths.add(dest.absolutePath)
+                restoredBytes += item.size
                 false
             } else {
                 true
@@ -170,6 +173,7 @@ object TrashManager {
         }
         save(context, remaining)
         if (restoredPaths.isNotEmpty()) MediaScannerConnection.scanFile(context, restoredPaths.toTypedArray(), null, null)
+        if (restoredPaths.isNotEmpty()) History.recordFreed(context, -restoredBytes, -restoredPaths.size)
         restoredPaths.size
     }
 
