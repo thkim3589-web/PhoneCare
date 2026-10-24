@@ -59,7 +59,11 @@ object StorageScanner {
     }
 
     /** 내장 저장소를 훑어서 정리 후보 파일을 찾는다. (시간이 걸리므로 백그라운드에서 호출) */
-    fun scan(protectedFolders: List<String> = emptyList(), onProgress: (Int) -> Unit): List<FoundFile> {
+    fun scan(
+        protectedFolders: List<String> = emptyList(),
+        isActive: () -> Boolean = { true },
+        onProgress: (Int) -> Unit,
+    ): List<FoundFile> {
         val root = Environment.getExternalStorageDirectory()
         val rootPath = root.absolutePath
         val downloadsPath = File(root, Environment.DIRECTORY_DOWNLOADS).absolutePath + "/"
@@ -68,13 +72,14 @@ object StorageScanner {
 
         root.walkTopDown()
             .onEnter { dir ->
-                // 다른 앱 전용 폴더(Android/)와 숨김 폴더는 건너뜀
-                !(dir.name == "Android" && dir.parentFile?.absolutePath == rootPath) &&
+                // 중단 요청 시 더 들어가지 않음 / 다른 앱 전용 폴더(Android/)와 숨김 폴더는 건너뜀
+                isActive() &&
+                    !(dir.name == "Android" && dir.parentFile?.absolutePath == rootPath) &&
                     !(dir.name.startsWith(".") && dir.absolutePath != rootPath) &&
                     !ProtectedFolders.isProtected(dir.absolutePath, protectedFolders)
             }
             .forEach { file ->
-                if (!file.isFile) return@forEach
+                if (!file.isFile || !isActive()) return@forEach
                 count++
                 if (count % 200 == 0) onProgress(count)
 

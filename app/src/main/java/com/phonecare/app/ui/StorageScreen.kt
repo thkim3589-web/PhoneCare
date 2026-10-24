@@ -62,8 +62,10 @@ import com.phonecare.app.data.ProtectedFolders
 import com.phonecare.app.data.StorageScanner
 import com.phonecare.app.data.TrashManager
 import com.phonecare.app.util.formatBytes
+import com.phonecare.app.util.agoText
 import com.phonecare.app.util.formatDate
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -111,7 +113,7 @@ private val suggestedFolders = listOf(
 fun StorageScreen(resumeTick: Int) {
     val context = LocalContext.current
     var hasAccess by remember { mutableStateOf(StorageScanner.hasAccess(context)) }
-    var section by rememberSaveable { mutableIntStateOf(0) }
+    var section by ScanState::storageSection
     var protectedList by remember { mutableStateOf(ProtectedFolders.list(context)) }
     var showProtect by remember { mutableStateOf(false) }
 
@@ -275,11 +277,11 @@ private fun ProtectedFoldersDialog(
 @Composable
 private fun CleanupSection(protectedFolders: List<String>, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     var sortOrder by remember { mutableStateOf(FileSort.load(context)) }
-    var scanning by remember { mutableStateOf(false) }
-    var scannedCount by remember { mutableIntStateOf(0) }
-    var results by remember { mutableStateOf<List<FoundFile>?>(null) }
+    // 결과·진행 상태는 화면 밖(ScanState)에 보관 → 다른 화면에 다녀와도 유지
+    var scanning by ScanState::cleanupScanning
+    var scannedCount by ScanState::cleanupCount
+    var results by ScanState::cleanup
     var selected by remember { mutableStateOf(setOf<String>()) }
     var expanded by remember { mutableStateOf(setOf<FileCategory>()) }
     var showConfirm by remember { mutableStateOf(false) }
@@ -288,14 +290,19 @@ private fun CleanupSection(protectedFolders: List<String>, modifier: Modifier = 
     fun startScan() {
         scanning = true
         scannedCount = 0
-        results = null
         selected = emptySet()
-        scope.launch {
-            val found = withContext(Dispatchers.IO) {
-                StorageScanner.scan(protectedFolders) { n -> scannedCount = n }
+        ScanState.cleanupJob = ScanState.scope.launch {
+            try {
+                val found = withContext(Dispatchers.IO) {
+                    StorageScanner.scan(protectedFolders, isActive = { isActive }) { n -> scannedCount = n }
+                }
+                if (isActive) {
+                    results = found
+                    ScanState.cleanupAt = System.currentTimeMillis()
+                }
+            } finally {
+                scanning = false
             }
-            results = found
-            scanning = false
         }
     }
 
@@ -314,10 +321,25 @@ private fun CleanupSection(protectedFolders: List<String>, modifier: Modifier = 
                     PremiumCard(Modifier.fillMaxWidth()) {
                         Text("파일 검사 중… ($scannedCount 개 확인)")
                         LinearProgressIndicator(Modifier.fillMaxWidth())
+                        Text(
+                            "다른 화면에 다녀와도 검사는 계속돼요.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        OutlinedButton(onClick = { ScanState.cleanupJob?.cancel() }) { Text("검사 중단") }
                     }
                 } else {
-                    Button(onClick = { startScan() }, modifier = Modifier.fillMaxWidth().height(50.dp)) {
-                        Text(if (results == null) "검사 시작" else "다시 검사")
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Button(onClick = { startScan() }, modifier = Modifier.fillMaxWidth().height(50.dp)) {
+                            Text(if (results == null) "검사 시작" else "다시 검사")
+                        }
+                        if (results != null && ScanState.cleanupAt > 0) {
+                            Text(
+                                "마지막 검사: ${agoText(ScanState.cleanupAt)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }
@@ -408,7 +430,7 @@ private fun CleanupSection(protectedFolders: List<String>, modifier: Modifier = 
             text = {
                 Text(
                     "${selectedFiles.size}개 파일(${formatBytes(selectedBytes)})을 휴지통으로 옮길까요?\n" +
-                        "${TrashManager.KEEP_DAYS}일 동안 '휴지통'에서 복원할 수 있고, 그 뒤 자동으로 삭제돼요.",
+                        "${TrashManager.keepDays(context)}일 동안 '휴지통'에서 복원할 수 있고, 그 뒤 자동으로 삭제돼요.",
                 )
             },
             confirmButton = {
@@ -416,9 +438,9 @@ private fun CleanupSection(protectedFolders: List<String>, modifier: Modifier = 
                     showConfirm = false
                     deleting = true
                     val paths = selectedFiles.map { it.path }
-                    scope.launch {
+                    ScanState.scope.launch {
                         val (moved, freed) = withContext(Dispatchers.IO) { TrashManager.moveToTrash(context, paths) }
-                        results = results?.filterNot { it.path in moved }
+                        ScanState.removePaths(moved)
                         selected = selected - moved
                         deleting = false
                         val failed = paths.size - moved.size

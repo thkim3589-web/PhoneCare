@@ -58,9 +58,9 @@ private const val KAKAO_PKG = "com.kakao.talk"
 @Composable
 fun MessengerSection(protectedFolders: List<String>, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var files by remember { mutableStateOf<List<MsgFile>?>(null) }
-    var kakaoStorage by remember { mutableStateOf<AppStorage?>(null) }
+    var files by ScanState::msgFiles
+    var kakaoStorage by ScanState::msgKakao
+    var reloadTick by remember { mutableIntStateOf(0) }
     var appFilter by remember { mutableStateOf<String?>(null) }
     var kindFilter by remember { mutableStateOf<MsgKind?>(null) }
     var minAge by remember { mutableIntStateOf(0) }
@@ -69,8 +69,11 @@ fun MessengerSection(protectedFolders: List<String>, modifier: Modifier = Modifi
     var working by remember { mutableStateOf(false) }
     val kakaoInstalled = remember { MessengerFiles.isInstalled(context, KAKAO_PKG) }
 
-    LaunchedEffect(protectedFolders) {
+    // 처음 열 때·보호 폴더가 바뀌었을 때·'다시 검사'를 눌렀을 때만 새로 검사 (그 외엔 이전 결과 유지)
+    LaunchedEffect(protectedFolders, reloadTick) {
+        if (files != null && ScanState.msgProtectedKey == protectedFolders && reloadTick == 0) return@LaunchedEffect
         files = null
+        ScanState.msgProtectedKey = protectedFolders
         files = withContext(Dispatchers.IO) { MessengerFiles.scan(protectedFolders) }
         kakaoStorage = withContext(Dispatchers.IO) { MessengerFiles.appStorage(context, KAKAO_PKG) }
     }
@@ -126,11 +129,16 @@ fun MessengerSection(protectedFolders: List<String>, modifier: Modifier = Modifi
             }
 
             item {
-                Text(
-                    "메신저로 받아서 휴대폰에 저장된 파일",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(top = 6.dp),
-                )
+                Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "메신저로 받아서 휴대폰에 저장된 파일",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (files != null) {
+                        TextButton(onClick = { reloadTick++ }) { Text("다시 검사") }
+                    }
+                }
             }
 
             if (files == null) {
@@ -221,7 +229,7 @@ fun MessengerSection(protectedFolders: List<String>, modifier: Modifier = Modifi
             text = {
                 Text(
                     "${selectedFiles.size}개 파일(${formatBytes(selectedBytes)})을 휴지통으로 옮길까요?\n" +
-                        "${TrashManager.KEEP_DAYS}일 동안 '휴지통'에서 복원할 수 있어요. 채팅방 대화 내용에는 영향이 없어요.",
+                        "${TrashManager.keepDays(context)}일 동안 '휴지통'에서 복원할 수 있어요. 채팅방 대화 내용에는 영향이 없어요.",
                 )
             },
             confirmButton = {
@@ -229,9 +237,9 @@ fun MessengerSection(protectedFolders: List<String>, modifier: Modifier = Modifi
                     showConfirm = false
                     working = true
                     val paths = selectedFiles.map { it.path }
-                    scope.launch {
+                    ScanState.scope.launch {
                         val (moved, freed) = withContext(Dispatchers.IO) { TrashManager.moveToTrash(context, paths) }
-                        files = files?.filterNot { it.path in moved }
+                        ScanState.removePaths(moved)
                         selected = selected - moved
                         working = false
                         Toast.makeText(context, "${moved.size}개 휴지통으로 이동 · ${formatBytes(freed)} 확보", Toast.LENGTH_LONG).show()

@@ -51,7 +51,7 @@ private val filterOptions = listOf(30, 90, 180, 0) // 0 = 전체
 fun AppsScreen(resumeTick: Int) {
     val context = LocalContext.current
     var hasAccess by remember { mutableStateOf(AppUsage.hasUsageAccess(context)) }
-    var apps by remember { mutableStateOf<List<AppItem>?>(null) }
+    var apps by ScanState::apps
     var loading by remember { mutableStateOf(false) }
     var minDays by rememberSaveable { mutableIntStateOf(30) }
 
@@ -60,9 +60,11 @@ fun AppsScreen(resumeTick: Int) {
         hasAccess = AppUsage.hasUsageAccess(context)
         if (!hasAccess) return@LaunchedEffect
         val current = apps
-        if (current == null) {
-            loading = true
+        // 처음이거나 10분 넘게 지났으면 새로 읽고, 아니면 지운 앱만 목록에서 뺌
+        if (current == null || System.currentTimeMillis() - ScanState.appsLoadedAt > 10 * 60 * 1000L) {
+            loading = current == null
             apps = withContext(Dispatchers.IO) { AppUsage.loadApps(context) }
+            ScanState.appsLoadedAt = System.currentTimeMillis()
             loading = false
         } else {
             apps = withContext(Dispatchers.IO) {

@@ -16,7 +16,7 @@ data class TrashItem(
     val size: Long,
     val deletedAt: Long,
 ) {
-    val daysLeft: Long get() = (TrashManager.KEEP_DAYS - daysAgo(deletedAt)).coerceAtLeast(0)
+    fun daysLeft(keepDays: Int): Long = (keepDays - daysAgo(deletedAt)).coerceAtLeast(0)
     val originalFolder: String
         get() = File(originalPath).parent
             ?.removePrefix(Environment.getExternalStorageDirectory().absolutePath)
@@ -29,7 +29,17 @@ data class TrashItem(
  */
 object TrashManager {
 
-    const val KEEP_DAYS = 7
+    const val DEFAULT_KEEP_DAYS = 7
+    val keepOptions = listOf(3, 7, 14, 30)
+    private const val PREFS = "trash"
+
+    /** 휴지통 보관 기간 (설정에서 고를 수 있음) */
+    fun keepDays(context: Context): Int =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt("keep_days", DEFAULT_KEEP_DAYS)
+
+    fun setKeepDays(context: Context, days: Int) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt("keep_days", days).apply()
+    }
     private const val INDEX_FILE = "trash_index.json"
     private val lock = Any()
 
@@ -183,7 +193,7 @@ object TrashManager {
 
     /** 보관 기간이 지난 항목 자동 삭제 (앱 시작 시 호출) */
     fun purgeExpired(context: Context): Int {
-        val expired = list(context).filter { daysAgo(it.deletedAt) >= KEEP_DAYS }.map { it.id }.toSet()
+        val expired = list(context).filter { daysAgo(it.deletedAt) >= keepDays(context) }.map { it.id }.toSet()
         if (expired.isEmpty()) return 0
         deleteForever(context, expired)
         return expired.size

@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -45,34 +46,37 @@ import com.phonecare.app.data.TrashManager
 import com.phonecare.app.util.formatBytes
 import com.phonecare.app.util.formatDate
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
 fun DuplicatesSection(modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var scanning by remember { mutableStateOf(false) }
-    var progress by remember { mutableStateOf(0 to 0) }
-    var groups by remember { mutableStateOf<List<PhotoGroup>?>(null) }
-    var selected by remember { mutableStateOf(setOf<String>()) }
+    var scanning by ScanState::dupScanning
+    var progress by ScanState::dupProgress
+    var groups by ScanState::dupGroups
+    var selected by ScanState::dupSelected
     var showConfirm by remember { mutableStateOf(false) }
     var working by remember { mutableStateOf(false) }
 
     fun startScan() {
         scanning = true
-        groups = null
-        selected = emptySet()
         progress = 0 to 0
-        scope.launch {
-            val protectedFolders = ProtectedFolders.list(context)
-            val found = withContext(Dispatchers.IO) {
-                PhotoDuplicates.scan(context, protectedFolders) { d, t -> progress = d to t }
+        ScanState.dupJob = ScanState.scope.launch {
+            try {
+                val protectedFolders = ProtectedFolders.list(context)
+                val found = withContext(Dispatchers.IO) {
+                    PhotoDuplicates.scan(context, protectedFolders, isActive = { isActive }) { d, t -> progress = d to t }
+                }
+                if (isActive) {
+                    groups = found
+                    // 기본 선택: 각 묶음에서 추천 1장을 뺀 나머지
+                    selected = found.flatMap { g -> g.removable.map { it.path } }.toSet()
+                }
+            } finally {
+                scanning = false
             }
-            groups = found
-            // 기본 선택: 각 묶음에서 추천 1장을 뺀 나머지
-            selected = found.flatMap { g -> g.removable.map { it.path } }.toSet()
-            scanning = false
         }
     }
 
@@ -91,7 +95,7 @@ fun DuplicatesSection(modifier: Modifier = Modifier) {
                     SectionHeader("🖼️", LocalBrand.current.end, "중복·비슷한 사진")
                     Text(
                         "똑같은 사진, 연속 촬영으로 비슷하게 찍힌 사진을 찾아 가장 좋은 1장만 남겨요. " +
-                            "분석은 폰 안에서만 이뤄지고, 지운 사진은 휴지통에 7일간 보관돼요.",
+                            "분석은 폰 안에서만 이뤄지고, 지운 사진은 휴지통에 ${TrashManager.keepDays(context)}일간 보관돼요.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -104,6 +108,7 @@ fun DuplicatesSection(modifier: Modifier = Modifier) {
                                 .fillMaxWidth()
                                 .height(8.dp),
                         )
+                        OutlinedButton(onClick = { ScanState.dupJob?.cancel() }) { Text("분석 중단") }
                     } else {
                         Button(onClick = { startScan() }, modifier = Modifier.fillMaxWidth().height(48.dp)) {
                             Text(if (groups == null) "사진 분석 시작" else "다시 분석")
@@ -163,7 +168,7 @@ fun DuplicatesSection(modifier: Modifier = Modifier) {
             text = {
                 Text(
                     "${selectedItems.size}장(${formatBytes(selectedBytes)})을 휴지통으로 옮길까요?\n" +
-                        "7일 안에는 '휴지통'에서 복원할 수 있어요." +
+                        "${TrashManager.keepDays(context)}일 안에는 '휴지통'에서 복원할 수 있어요." +
                         if (wholeGroups > 0) "\n\n⚠ ${wholeGroups}개 묶음은 사진을 전부 선택했어요. 한 장도 남지 않아요." else "",
                 )
             },
@@ -172,12 +177,9 @@ fun DuplicatesSection(modifier: Modifier = Modifier) {
                     showConfirm = false
                     working = true
                     val paths = selectedItems.map { it.path }
-                    scope.launch {
+                    ScanState.scope.launch {
                         val (moved, freed) = withContext(Dispatchers.IO) { TrashManager.moveToTrash(context, paths) }
-                        groups = groups
-                            ?.map { g -> g.copy(photos = g.photos.filterNot { it.path in moved }) }
-                            ?.filter { it.photos.size > 1 }
-                        selected = selected - moved
+                        ScanState.removePaths(moved)
                         working = false
                         Toast.makeText(context, "${moved.size}장 휴지통으로 이동 · ${formatBytes(freed)} 확보", Toast.LENGTH_LONG).show()
                     }

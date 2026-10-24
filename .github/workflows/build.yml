@@ -45,7 +45,8 @@ jobs:
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          set -o pipefail
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
 
       # 커밋 메시지에 [lint]가 있으면 코드 검사 실행 → 결과를 '사전 릴리스'로 올림 (앱 업데이트에는 안 잡힘)
       - name: Lint check
@@ -78,3 +79,19 @@ jobs:
           tag_name: build-${{ github.run_number }}
           name: PhoneCare build ${{ github.run_number }}
           files: PhoneCare.apk
+
+      # 빌드가 실패하면 오류 로그를 '사전 릴리스'로 올려서 원인을 바로 확인 (앱 업데이트에는 안 잡힘)
+      - name: Collect failure log
+        if: failure()
+        run: |
+          touch build.log
+          grep -nE "^e: |error:|FAILURE|What went wrong" -A 3 build.log > build-errors.txt || true
+          tail -n 200 build.log >> build-errors.txt
+
+      - uses: softprops/action-gh-release@v2
+        if: failure()
+        with:
+          tag_name: fail-${{ github.run_number }}
+          name: 빌드 실패 기록 ${{ github.run_number }}
+          prerelease: true
+          files: build-errors.txt

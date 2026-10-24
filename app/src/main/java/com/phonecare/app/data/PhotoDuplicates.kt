@@ -38,7 +38,12 @@ object PhotoDuplicates {
      * 갤러리 사진에서 중복·비슷한 사진 묶음을 찾는다. (시간이 걸리므로 백그라운드에서 호출)
      * onProgress(처리한 수, 전체 수)
      */
-    fun scan(context: Context, protectedFolders: List<String>, onProgress: (Int, Int) -> Unit): List<PhotoGroup> {
+    fun scan(
+        context: Context,
+        protectedFolders: List<String>,
+        isActive: () -> Boolean = { true },
+        onProgress: (Int, Int) -> Unit,
+    ): List<PhotoGroup> {
         val photos = queryPhotos(context).filter {
             !ProtectedFolders.isProtected(it.path, protectedFolders) &&
                 !it.path.contains("/.") && // 숨김 폴더(휴지통 등) 제외
@@ -51,6 +56,7 @@ object PhotoDuplicates {
 
         // 1) 완전히 같은 사진: 크기가 같은 것끼리만 해시 비교
         photos.groupBy { it.size }.values.filter { it.size > 1 }.forEach { sameSize ->
+            if (!isActive()) return emptyList()
             sameSize.groupBy { md5(it.path) }
                 .filter { (hash, list) -> hash != null && list.size > 1 }
                 .values
@@ -85,6 +91,7 @@ object PhotoDuplicates {
         }
 
         for (p in remaining) {
+            if (!isActive()) return emptyList()
             val h = dHash(p.path)
             done++
             if (done % 20 == 0) onProgress(done, total)

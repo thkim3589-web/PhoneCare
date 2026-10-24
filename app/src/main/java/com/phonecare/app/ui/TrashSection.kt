@@ -2,6 +2,8 @@ package com.phonecare.app.ui
 
 import android.widget.Toast
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -18,6 +20,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -50,6 +53,7 @@ fun TrashSection(resumeTick: Int, modifier: Modifier = Modifier) {
     var selected by remember { mutableStateOf(setOf<String>()) }
     var confirmDelete by remember { mutableStateOf<Set<String>?>(null) }
     var working by remember { mutableStateOf(false) }
+    var keepDays by remember { mutableStateOf(TrashManager.keepDays(context)) }
 
     suspend fun reload() {
         items = withContext(Dispatchers.IO) { TrashManager.list(context) }
@@ -71,11 +75,28 @@ fun TrashSection(resumeTick: Int, modifier: Modifier = Modifier) {
                 PremiumCard(Modifier.fillMaxWidth()) {
                     SectionHeader("🗑️", ScoreWarn, "휴지통", formatBytes(total), MaterialTheme.colorScheme.onSurface)
                     Text(
-                        "폰케어에서 지운 파일은 여기에 ${TrashManager.KEEP_DAYS}일간 보관된 뒤 자동으로 영구 삭제돼요. " +
+                        "폰케어에서 지운 파일은 여기에 ${keepDays}일간 보관된 뒤 자동으로 영구 삭제돼요. " +
                             "실수로 지웠다면 골라서 복원하세요.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    Row(
+                        Modifier.horizontalScroll(rememberScrollState()),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text("보관 기간", style = MaterialTheme.typography.labelLarge)
+                        TrashManager.keepOptions.forEach { d ->
+                            FilterChip(
+                                selected = keepDays == d,
+                                onClick = {
+                                    keepDays = d
+                                    TrashManager.setKeepDays(context, d)
+                                },
+                                label = { Text("${d}일") },
+                            )
+                        }
+                    }
                     if (list.isNotEmpty()) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(
@@ -104,6 +125,7 @@ fun TrashSection(resumeTick: Int, modifier: Modifier = Modifier) {
             items(list, key = { it.id }) { item ->
                 TrashRow(
                     item = item,
+                    keepDays = keepDays,
                     checked = item.id in selected,
                     onToggle = { selected = if (item.id in selected) selected - item.id else selected + item.id },
                 )
@@ -168,7 +190,7 @@ fun TrashSection(resumeTick: Int, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun TrashRow(item: TrashItem, checked: Boolean, onToggle: () -> Unit) {
+private fun TrashRow(item: TrashItem, keepDays: Int, checked: Boolean, onToggle: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -190,9 +212,9 @@ private fun TrashRow(item: TrashItem, checked: Boolean, onToggle: () -> Unit) {
             )
         }
         Text(
-            if (item.daysLeft == 0L) "오늘 삭제" else "${item.daysLeft}일 남음",
+            item.daysLeft(keepDays).let { if (it == 0L) "곧 삭제" else "${it}일 남음" },
             style = MaterialTheme.typography.labelSmall,
-            color = if (item.daysLeft <= 1) ScoreBad else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (item.daysLeft(keepDays) <= 1) ScoreBad else MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

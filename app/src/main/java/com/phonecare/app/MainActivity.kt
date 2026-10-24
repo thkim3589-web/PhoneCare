@@ -70,6 +70,9 @@ const val NAV_WIDGET = 98
 /** 사용 가이드 열기 */
 const val NAV_GUIDE = 97
 
+/** 저장공간 탭의 휴지통 바로 열기 */
+const val NAV_TRASH = 96
+
 class MainActivity : ComponentActivity() {
 
     // 설정 화면에서 돌아올 때마다 값이 바뀌어 각 화면이 권한/목록을 다시 확인하게 함
@@ -199,6 +202,10 @@ private fun MainApp(resumeTick: Int) {
                         when (target) {
                             NAV_SETUP -> showSetup = true
                             NAV_GUIDE -> showGuide = true
+                            NAV_TRASH -> {
+                                com.phonecare.app.ui.ScanState.storageSection = 3
+                                tab = 2
+                            }
                             NAV_WIDGET -> if (!PhoneCareWidget.requestPin(context)) {
                                 Toast.makeText(
                                     context,

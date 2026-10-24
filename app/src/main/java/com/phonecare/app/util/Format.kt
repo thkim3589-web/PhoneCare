@@ -42,3 +42,14 @@ fun Context.openSettings(intent: Intent) {
     } catch (ignored: SecurityException) {
     }
 }
+
+/** "방금", "5분 전", "3시간 전", "2일 전" */
+fun agoText(time: Long): String {
+    val min = (System.currentTimeMillis() - time) / 60_000
+    return when {
+        min < 1 -> "방금"
+        min < 60 -> "${min}분 전"
+        min < 60 * 24 -> "${min / 60}시간 전"
+        else -> "${min / (60 * 24)}일 전"
+    }
+}

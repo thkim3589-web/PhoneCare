@@ -154,8 +154,14 @@ fun HomeScreen(resumeTick: Int, onNavigate: (Int) -> Unit) {
 
         // ---------- 추천 조치 ----------
         val setupIncomplete = remember(resumeTick) { isSetupIncomplete(context) }
+        var trashBytes by remember { mutableStateOf(0L) }
+        LaunchedEffect(resumeTick) {
+            trashBytes = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.phonecare.app.data.TrashManager.totalSize(context)
+            }
+        }
         val noWidget = remember(resumeTick) { !com.phonecare.app.widget.PhoneCareWidget.hasWidgets(context) }
-        val recs = buildRecommendations(battery, storage, brand, setupIncomplete, noWidget)
+        val recs = buildRecommendations(battery, storage, brand, setupIncomplete, noWidget, trashBytes)
         PremiumCard(Modifier.fillMaxWidth()) {
             Text("추천 조치", style = MaterialTheme.typography.titleMedium)
             recs.forEachIndexed { i, rec ->
@@ -245,6 +251,7 @@ private fun buildRecommendations(
     brand: BrandColors,
     setupIncomplete: Boolean,
     noWidget: Boolean,
+    trashBytes: Long,
 ): List<Recommendation> {
     val list = mutableListOf<Recommendation>()
     if (setupIncomplete) {
@@ -256,6 +263,14 @@ private fun buildRecommendations(
             s.usedRatio > 0.9f -> list.add(Recommendation("🧹", ScoreBad, "저장공간 정리가 급해요", "$pct% 사용 중 · 속도 저하의 주원인이에요", 2))
             s.usedRatio > 0.8f -> list.add(Recommendation("🧹", ScoreWarn, "저장공간을 조금 비워주세요", "$pct% 사용 중", 2))
         }
+    }
+    if (trashBytes >= 100L * 1024 * 1024) {
+        list.add(
+            Recommendation(
+                "🗑️", ScoreWarn, "휴지통 ${formatBytes(trashBytes)}",
+                "지운 파일이 아직 공간을 차지해요. 비우면 바로 확보돼요", com.phonecare.app.NAV_TRASH,
+            ),
+        )
     }
     if (b != null) {
         if (b.temperatureC >= 40f) {
