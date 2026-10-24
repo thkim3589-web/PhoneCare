@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace = "com.phonecare.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.phonecare.app"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 24
         versionName = "3.9"
         // GitHub 빌드 번호 (자동 업데이트 비교용, 직접 빌드하면 0)
