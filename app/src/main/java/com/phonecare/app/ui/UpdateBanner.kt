@@ -1,5 +1,9 @@
 package com.phonecare.app.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -11,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -46,12 +51,18 @@ fun UpdateBanner(resumeTick: Int) {
     var downloading by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf(0f) }
     var readyApk by remember { mutableStateOf<File?>(null) }
+    var keySwitchPath by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(resumeTick) {
         if (!downloading) info = withContext(Dispatchers.IO) { Updater.check(context) }
     }
 
     fun installNow(apk: File) {
+        if (!Updater.sameSigner(context, apk)) {
+            // 서명 키가 바뀐 버전: 덮어쓰기가 안 되므로 삭제 후 설치 안내
+            keySwitchPath = Updater.copyToDownloads(apk) ?: ""
+            return
+        }
         if (Updater.canInstall(context)) {
             Updater.install(context, apk)
         } else {
@@ -115,5 +126,44 @@ fun UpdateBanner(resumeTick: Int) {
                 }
             }
         }
+    }
+
+    keySwitchPath?.let { path ->
+        AlertDialog(
+            onDismissRequest = { keySwitchPath = null },
+            title = { Text("이번 업데이트는 다시 설치가 필요해요") },
+            text = {
+                Text(
+                    "이번 버전부터 정식 서명 키로 바뀌어서, 기존 앱 위에 덮어쓸 수 없어요. 한 번만 아래처럼 해주세요.\n\n" +
+                        (
+                            if (path.isNotEmpty()) {
+                                "1. '앱 삭제'를 눌러 폰케어를 지워요.\n" +
+                                    "2. [내 파일 → 다운로드]의 'PhoneCare-새버전.apk'를 눌러 설치해요.\n"
+                            } else {
+                                "1. '링크 복사'를 눌러 주소를 복사해 두세요.\n" +
+                                    "2. '앱 삭제'로 폰케어를 지운 뒤, 인터넷 창에 주소를 붙여넣어 설치해요.\n"
+                            }
+                            ) +
+                        "3. 처음 화면에서 권한을 다시 허용하면 끝이에요.\n\n" +
+                        "다음 업데이트부터는 다시 버튼 한 번으로 돼요. (휴지통·알림 설정은 초기화돼요)",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    keySwitchPath = null
+                    context.startActivity(
+                        Intent(Intent.ACTION_DELETE, Uri.parse("package:${context.packageName}"))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                }) { Text("앱 삭제", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    context.getSystemService(ClipboardManager::class.java)
+                        ?.setPrimaryClip(ClipData.newPlainText("PhoneCare", Updater.LATEST_APK_URL))
+                    Toast.makeText(context, "설치 링크를 복사했어요", Toast.LENGTH_SHORT).show()
+                }) { Text("링크 복사") }
+            },
+        )
     }
 }

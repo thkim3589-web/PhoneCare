@@ -12,11 +12,13 @@ android {
         applicationId = "com.phonecare.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 13
-        versionName = "2.8"
+        versionCode = 14
+        versionName = "2.9"
     }
 
-    // 고정 서명 키: 새로 빌드한 APK를 기존 앱 위에 덮어서 설치(업데이트)할 수 있게 함
+    // 정식 서명 키: GitHub Secrets에 키가 등록돼 있으면 정식 키, 없으면 테스트 키로 서명
+    val releaseStore = System.getenv("RELEASE_KEYSTORE_PATH")?.let { file(it) }?.takeIf { it.exists() }
+
     signingConfigs {
         getByName("debug") {
             storeFile = file("debug.keystore")
@@ -24,15 +26,25 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        if (releaseStore != null) {
+            create("official") {
+                storeFile = releaseStore
+                storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+                keyAlias = "phonecare"
+                keyPassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+            }
+        }
     }
+
+    val signKey = if (releaseStore != null) signingConfigs.getByName("official") else signingConfigs.getByName("debug")
 
     buildTypes {
         debug {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signKey
         }
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signKey
         }
     }
 

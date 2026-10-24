@@ -124,4 +124,43 @@ object Updater {
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
     }
+
+    /** 내려받은 APK가 지금 설치된 앱과 같은 키로 서명됐는지 (확인할 수 없으면 true) */
+    fun sameSigner(context: Context, apk: File): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return true
+        return try {
+            val pm = context.packageManager
+            val flag = android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES
+            val archive = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.getPackageArchiveInfo(apk.path, android.content.pm.PackageManager.PackageInfoFlags.of(flag.toLong()))
+            } else {
+                @Suppress("DEPRECATION")
+                pm.getPackageArchiveInfo(apk.path, flag)
+            }
+            val installed = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.getPackageInfo(context.packageName, android.content.pm.PackageManager.PackageInfoFlags.of(flag.toLong()))
+            } else {
+                @Suppress("DEPRECATION")
+                pm.getPackageInfo(context.packageName, flag)
+            }
+            val a = archive?.signingInfo?.apkContentsSigners?.map { it.toCharsString() }?.toSet()
+            val b = installed.signingInfo?.apkContentsSigners?.map { it.toCharsString() }?.toSet()
+            if (a.isNullOrEmpty() || b.isNullOrEmpty()) true else a == b
+        } catch (e: Exception) {
+            true
+        }
+    }
+
+    /** 앱을 지워도 남도록 '다운로드' 폴더에 복사. 성공하면 저장 경로 */
+    fun copyToDownloads(apk: File): String? = try {
+        val dir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+        dir.mkdirs()
+        val out = File(dir, "PhoneCare-새버전.apk")
+        apk.copyTo(out, overwrite = true)
+        out.absolutePath
+    } catch (e: Exception) {
+        null
+    }
+
+    const val LATEST_APK_URL = "https://github.com/thkim3589-web/PhoneCare/releases/latest/download/PhoneCare.apk"
 }
