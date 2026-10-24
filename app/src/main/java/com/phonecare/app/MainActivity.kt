@@ -88,6 +88,9 @@ const val NAV_SETTINGS = 95
 /** 주간 리포트 열기 */
 const val NAV_REPORT = 94
 
+/** 저장공간 탭에서 보호 폴더 창 바로 열기 */
+const val NAV_PROTECT = 93
+
 /** 알림에서 앱을 열 때 어떤 화면을 열지 */
 object NavRequest {
     var report by mutableStateOf(false)
@@ -291,6 +294,12 @@ private fun MainApp(resumeTick: Int) {
                             NAV_GUIDE -> showGuide = true
                             NAV_SETTINGS -> showSettings = true
                             NAV_REPORT -> showReport = true
+                            NAV_PROTECT -> {
+                                context.getSharedPreferences("protect", android.content.Context.MODE_PRIVATE)
+                                    .edit().putBoolean("suggest_seen", true).apply()
+                                com.phonecare.app.ui.ScanState.openProtectDialog = true
+                                tab = 2
+                            }
                             NAV_TRASH -> {
                                 com.phonecare.app.ui.ScanState.storageSection = 3
                                 tab = 2

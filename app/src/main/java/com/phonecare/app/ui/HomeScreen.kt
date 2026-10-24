@@ -191,6 +191,17 @@ fun HomeScreen(resumeTick: Int, onNavigate: (Int) -> Unit) {
 
         // ---------- 추천 조치 ----------
         val setupIncomplete = remember(resumeTick) { isSetupIncomplete(context) }
+        var workFolders by remember { mutableStateOf(0) }
+        LaunchedEffect(resumeTick) {
+            val seen = context.getSharedPreferences("protect", android.content.Context.MODE_PRIVATE).getBoolean("suggest_seen", false)
+            workFolders = if (seen || !com.phonecare.app.data.StorageScanner.hasAccess(context)) {
+                0
+            } else {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    com.phonecare.app.data.ProtectedFolders.suggestWorkFolders(context).size
+                }
+            }
+        }
         var trashBytes by remember { mutableStateOf(0L) }
         LaunchedEffect(resumeTick) {
             trashBytes = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -198,7 +209,7 @@ fun HomeScreen(resumeTick: Int, onNavigate: (Int) -> Unit) {
             }
         }
         val noWidget = remember(resumeTick) { !com.phonecare.app.widget.PhoneCareWidget.hasWidgets(context) }
-        val recs = buildRecommendations(battery, storage, brand, setupIncomplete, noWidget, trashBytes)
+        val recs = buildRecommendations(battery, storage, brand, setupIncomplete, noWidget, trashBytes, workFolders)
         PremiumCard(Modifier.fillMaxWidth()) {
             Text("추천 조치", style = MaterialTheme.typography.titleMedium)
             recs.forEachIndexed { i, rec ->
@@ -326,6 +337,7 @@ private fun buildRecommendations(
     setupIncomplete: Boolean,
     noWidget: Boolean,
     trashBytes: Long,
+    workFolders: Int,
 ): List<Recommendation> {
     val list = mutableListOf<Recommendation>()
     if (setupIncomplete) {
@@ -337,6 +349,14 @@ private fun buildRecommendations(
             s.usedRatio > 0.9f -> list.add(Recommendation("🧹", ScoreBad, "저장공간 정리가 급해요", "$pct% 사용 중 · 속도 저하의 주원인이에요", 2))
             s.usedRatio > 0.8f -> list.add(Recommendation("🧹", ScoreWarn, "저장공간을 조금 비워주세요", "$pct% 사용 중", 2))
         }
+    }
+    if (workFolders > 0) {
+        list.add(
+            Recommendation(
+                "💼", brand.start, "업무 폴더 ${workFolders}개를 찾았어요",
+                "보호 폴더로 지정하면 정리할 때 실수로 지워지지 않아요", com.phonecare.app.NAV_PROTECT,
+            ),
+        )
     }
     if (trashBytes >= 100L * 1024 * 1024) {
         list.add(

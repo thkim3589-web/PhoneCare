@@ -95,6 +95,18 @@
         </receiver>
 
         <receiver
+            android:name=".widget.PhoneCareWidgetSmall"
+            android:exported="true"
+            android:label="폰케어 (작게)">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_small" />
+        </receiver>
+
+        <receiver
             android:name=".service.GuardBootReceiver"
             android:exported="true">
             <intent-filter>

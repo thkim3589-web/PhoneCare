@@ -15,19 +15,33 @@ import com.phonecare.app.data.DeviceInfo
 import java.util.Locale
 
 /** 홈 화면 위젯: 관리 점수 + 배터리·저장공간·메모리·온도 */
+/** 2×2 작은 위젯: 같은 내용을 정사각형 배치로 */
+class PhoneCareWidgetSmall : AppWidgetProvider() {
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
+        val views = PhoneCareWidget.build(context, R.layout.widget_phonecare_small)
+        ids.forEach { manager.updateAppWidget(it, views) }
+    }
+}
+
 class PhoneCareWidget : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        val views = build(context)
+        val views = build(context, R.layout.widget_phonecare)
         ids.forEach { manager.updateAppWidget(it, views) }
     }
 
     companion object {
         private var lastUpdate = 0L
 
+        /** 위젯 종류별 (화면 구성, 위젯 클래스) */
+        private val kinds = listOf(
+            R.layout.widget_phonecare to PhoneCareWidget::class.java,
+            R.layout.widget_phonecare_small to PhoneCareWidgetSmall::class.java,
+        )
+
         fun hasWidgets(context: Context): Boolean = try {
-            AppWidgetManager.getInstance(context)
-                .getAppWidgetIds(ComponentName(context, PhoneCareWidget::class.java)).isNotEmpty()
+            val manager = AppWidgetManager.getInstance(context)
+            kinds.any { (_, cls) -> manager.getAppWidgetIds(ComponentName(context, cls)).isNotEmpty() }
         } catch (e: Exception) {
             false
         }
@@ -39,10 +53,12 @@ class PhoneCareWidget : AppWidgetProvider() {
             lastUpdate = now
             try {
                 val manager = AppWidgetManager.getInstance(context)
-                val ids = manager.getAppWidgetIds(ComponentName(context, PhoneCareWidget::class.java))
-                if (ids.isEmpty()) return
-                val views = build(context)
-                ids.forEach { manager.updateAppWidget(it, views) }
+                for ((layout, cls) in kinds) {
+                    val ids = manager.getAppWidgetIds(ComponentName(context, cls))
+                    if (ids.isEmpty()) continue
+                    val views = build(context, layout)
+                    ids.forEach { manager.updateAppWidget(it, views) }
+                }
             } catch (e: Exception) {
             }
         }
@@ -59,8 +75,8 @@ class PhoneCareWidget : AppWidgetProvider() {
             false
         }
 
-        private fun build(context: Context): RemoteViews {
-            val views = RemoteViews(context.packageName, R.layout.widget_phonecare)
+        fun build(context: Context, layout: Int): RemoteViews {
+            val views = RemoteViews(context.packageName, layout)
             val b = DeviceInfo.battery(context)
             val m = try {
                 DeviceInfo.memory(context)
@@ -87,17 +103,20 @@ class PhoneCareWidget : AppWidgetProvider() {
             views.setTextColor(R.id.w_score, scoreColor)
             views.setTextViewText(R.id.w_label, label)
 
+            // 작은 위젯은 이름표가 없어서 아이콘을 앞에 붙임
+            val small = layout == R.layout.widget_phonecare_small
+            fun tag(icon: String) = if (small) "$icon " else ""
             views.setTextViewText(
                 R.id.w_battery,
-                b?.takeIf { it.level >= 0 }?.let { "${it.level}%" + if (it.charging) "⚡" else "" } ?: "-",
+                tag("🔋") + (b?.takeIf { it.level >= 0 }?.let { "${it.level}%" + if (it.charging) "⚡" else "" } ?: "-"),
             )
-            views.setTextViewText(R.id.w_storage, s?.let { "${(it.usedRatio * 100).toInt()}%" } ?: "-")
+            views.setTextViewText(R.id.w_storage, tag("💾") + (s?.let { "${(it.usedRatio * 100).toInt()}%" } ?: "-"))
             views.setTextViewText(
                 R.id.w_memory,
-                m?.takeIf { it.total > 0 }?.let { "${((1f - it.available.toFloat() / it.total) * 100).toInt()}%" } ?: "-",
+                tag("🧠") + (m?.takeIf { it.total > 0 }?.let { "${((1f - it.available.toFloat() / it.total) * 100).toInt()}%" } ?: "-"),
             )
             val temp = b?.temperatureC
-            views.setTextViewText(R.id.w_temp, temp?.let { String.format(Locale.US, "%.0f°", it) } ?: "-")
+            views.setTextViewText(R.id.w_temp, tag("🌡") + (temp?.let { String.format(Locale.US, "%.0f°", it) } ?: "-"))
             if (temp != null) {
                 views.setTextColor(
                     R.id.w_temp,

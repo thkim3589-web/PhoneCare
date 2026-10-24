@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -117,8 +119,21 @@ fun StorageScreen(resumeTick: Int) {
     var section by ScanState::storageSection
     var protectedList by remember { mutableStateOf(ProtectedFolders.list(context)) }
     var showProtect by remember { mutableStateOf(false) }
+    var workSuggestions by remember { mutableStateOf<List<String>>(emptyList()) }
 
     LaunchedEffect(resumeTick) { hasAccess = StorageScanner.hasAccess(context) }
+    // 홈에서 '업무 폴더 보호하기'를 눌러 들어온 경우 바로 보호 폴더 창 열기
+    LaunchedEffect(ScanState.openProtectDialog) {
+        if (ScanState.openProtectDialog) {
+            ScanState.openProtectDialog = false
+            showProtect = true
+        }
+    }
+    LaunchedEffect(showProtect, protectedList) {
+        if (showProtect && hasAccess) {
+            workSuggestions = withContext(Dispatchers.IO) { ProtectedFolders.suggestWorkFolders(context) }
+        }
+    }
 
     val legacyPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -208,6 +223,7 @@ fun StorageScreen(resumeTick: Int) {
     if (showProtect) {
         ProtectedFoldersDialog(
             folders = protectedList,
+            workSuggestions = workSuggestions,
             onAddPicker = { folderPicker.launch(null) },
             onAddPath = { path ->
                 ProtectedFolders.add(context, path)
@@ -225,6 +241,7 @@ fun StorageScreen(resumeTick: Int) {
 @Composable
 private fun ProtectedFoldersDialog(
     folders: List<String>,
+    workSuggestions: List<String>,
     onAddPicker: () -> Unit,
     onAddPath: (String) -> Unit,
     onRemove: (String) -> Unit,
@@ -239,7 +256,12 @@ private fun ProtectedFoldersDialog(
         onDismissRequest = onDismiss,
         title = { Text("보호 폴더") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                Modifier
+                    .heightIn(max = 460.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 Text(
                     "여기 지정한 폴더(하위 폴더 포함)는 정리 후보·중복 사진 검사에서 완전히 빠져요.",
                     style = MaterialTheme.typography.bodySmall,
@@ -252,6 +274,22 @@ private fun ProtectedFoldersDialog(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("🛡️  " + ProtectedFolders.display(path), Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         TextButton(onClick = { onRemove(path) }) { Text("해제", color = MaterialTheme.colorScheme.error) }
+                    }
+                }
+                if (workSuggestions.isNotEmpty()) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Text("💼 업무 폴더로 보여요", style = MaterialTheme.typography.labelLarge)
+                    workSuggestions.forEach { path ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                ProtectedFolders.display(path),
+                                Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            TextButton(onClick = { onAddPath(path) }) { Text("보호") }
+                        }
                     }
                 }
                 if (suggestions.isNotEmpty()) {

@@ -26,6 +26,9 @@ object ScanState {
     // 저장공간 탭에서 보고 있는 하위 화면 (홈에서 바로 휴지통으로 보낼 때도 사용)
     var storageSection by mutableIntStateOf(0)
 
+    // 홈 추천에서 '업무 폴더 보호하기'를 눌렀을 때 보호 폴더 창 바로 열기
+    var openProtectDialog by mutableStateOf(false)
+
     // 정리 후보
     var cleanup by mutableStateOf<List<FoundFile>?>(null)
     var cleanupScanning by mutableStateOf(false)

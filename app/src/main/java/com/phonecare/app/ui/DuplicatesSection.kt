@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.phonecare.app.data.BackupApps
 import com.phonecare.app.data.GroupType
 import com.phonecare.app.data.PhotoDuplicates
 import com.phonecare.app.data.PhotoGroup
@@ -94,6 +95,23 @@ fun DuplicatesSection(modifier: Modifier = Modifier) {
             item {
                 PremiumCard(Modifier.fillMaxWidth()) {
                     SectionHeader("🖼️", LocalBrand.current.end, "중복·비슷한 사진")
+                    // 백업 확인: 지우기 전에 클라우드에 있는지 확인하도록 안내
+                    val backups = remember { BackupApps.installed(context) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            if (backups.isNotEmpty()) {
+                                "☁️ 지우기 전에 ${backups.first().first}에 백업됐는지 확인하면 더 안심이에요"
+                            } else {
+                                "☁️ 백업 앱이 없어요. 소중한 사진은 [삼성 갤러리 → 설정 → 클라우드 동기화]로 먼저 백업하세요"
+                            },
+                            Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (backups.isNotEmpty()) {
+                            TextButton(onClick = { BackupApps.open(context, backups.first().second) }) { Text("열기") }
+                        }
+                    }
                     Text(
                         "똑같은 사진, 연속 촬영으로 비슷하게 찍힌 사진을 찾아 가장 좋은 1장만 남겨요. " +
                             "분석은 폰 안에서만 이뤄지고, 지운 사진은 휴지통에 ${TrashManager.keepDays(context)}일간 보관돼요.",
