@@ -227,7 +227,7 @@ private fun HeroScore(score: Int, items: List<DeviceInfo.ScoreItem>) {
     if (showDetail) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showDetail = false },
-            title = { Text("관리 점수 $score점 근거") },
+            title = { Text("관리 점수 ${score}점 근거") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
