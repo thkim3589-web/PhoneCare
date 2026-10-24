@@ -44,8 +44,24 @@ object NotifStats {
     private val lock = Any()
     private val dayFmt get() = SimpleDateFormat("yyyyMMdd", Locale.US)
 
+    /** 알림 접근(개수 집계)은 스토어 버전에만 있음 (직접 설치 APK는 Play Protect 경고 때문에 뺌) */
+    val listenerSupported: Boolean get() = com.phonecare.app.BuildConfig.STORE
+
     fun isListenerEnabled(c: Context): Boolean =
-        NotificationManagerCompat.getEnabledListenerPackages(c).contains(c.packageName)
+        listenerSupported && NotificationManagerCompat.getEnabledListenerPackages(c).contains(c.packageName)
+
+    /** 휴대폰 설정의 '앱 알림' 목록 (삼성은 '가장 많이 보낸 순' 정렬 가능) */
+    fun openAllAppNotificationSettings(c: Context) {
+        val tries = listOf("android.settings.ALL_APPS_NOTIFICATION_SETTINGS", "android.settings.NOTIFICATION_SETTINGS")
+        for (action in tries) {
+            try {
+                c.startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                return
+            } catch (e: Exception) {
+            }
+        }
+        c.openSettings(Intent(Settings.ACTION_SETTINGS))
+    }
 
     fun openListenerSettings(c: Context) {
         c.openSettings(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))

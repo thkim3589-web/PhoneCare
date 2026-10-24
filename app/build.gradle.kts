@@ -12,8 +12,8 @@ android {
         applicationId = "com.phonecare.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 26
-        versionName = "4.1"
+        versionCode = 27
+        versionName = "4.2"
         // GitHub 빌드 번호 (자동 업데이트 비교용, 직접 빌드하면 0)
         buildConfigField("int", "BUILD_NUMBER", System.getenv("GITHUB_RUN_NUMBER") ?: "0")
     }

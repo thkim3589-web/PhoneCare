@@ -77,7 +77,17 @@ fun NotifAppsScreen(resumeTick: Int) {
     ) {
         item { ScreenTitle("알림 많은 앱", "알림이 잦은 앱은 배터리를 쓰고 집중을 깨요. 필요 없는 알림은 꺼두세요") }
 
-        if (!listenerOn) {
+        if (!NotifStats.listenerSupported) {
+            item {
+                PermissionCard(
+                    title = "휴대폰 설정에서 '많이 보낸 순'으로 볼 수 있어요",
+                    description = "보안 경고를 막기 위해 직접 설치 버전에서는 '알림 접근' 기능을 뺐어요. " +
+                        "아래 목록은 시스템 기록 기준이고, 더 정확한 순위는 설정 → 알림 → 앱 알림에서 " +
+                        "정렬을 '가장 많이 보낸 순'으로 바꾸면 볼 수 있어요.",
+                    buttonText = "앱 알림 설정 열기",
+                ) { NotifStats.openAllAppNotificationSettings(context) }
+            }
+        } else if (!listenerOn) {
             item {
                 PermissionCard(
                     title = "알림 접근을 허용하면 정확하게 세어드려요",
@@ -107,8 +117,8 @@ fun NotifAppsScreen(resumeTick: Int) {
                         source == NotifSource.LISTENER && since > 0 && daysAgo(since) < period.days ->
                             "${formatDate(since)}부터 집계 중이에요. 며칠 지나면 더 정확해져요."
                         source == NotifSource.LISTENER -> "알림 접근으로 직접 센 결과예요."
-                        source == NotifSource.USAGE -> "시스템 기록 기준이에요. 알림 접근을 켜면 더 정확해져요."
-                        else -> "아직 집계된 알림이 없어요."
+                        source == NotifSource.USAGE -> if (NotifStats.listenerSupported) "시스템 기록 기준이에요. 알림 접근을 켜면 더 정확해져요." else "시스템 기록 기준이에요."
+                        else -> if (NotifStats.listenerSupported) "아직 집계된 알림이 없어요." else "이 휴대폰은 시스템 알림 기록을 주지 않아요. 위 버튼으로 설정에서 확인해 주세요."
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
