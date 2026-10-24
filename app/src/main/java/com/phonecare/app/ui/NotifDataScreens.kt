@@ -45,6 +45,7 @@ import com.phonecare.app.data.DataUsage
 import com.phonecare.app.data.NotifEntry
 import com.phonecare.app.data.NotifSource
 import com.phonecare.app.data.NotifStats
+import com.phonecare.app.util.Period
 import com.phonecare.app.util.daysAgo
 import com.phonecare.app.util.formatBytes
 import com.phonecare.app.util.formatDate
@@ -58,10 +59,11 @@ fun NotifAppsScreen(resumeTick: Int) {
     val context = LocalContext.current
     var result by remember { mutableStateOf<Pair<List<NotifEntry>, NotifSource>?>(null) }
     var listenerOn by remember { mutableStateOf(NotifStats.isListenerEnabled(context)) }
+    var period by rememberSaveable { mutableStateOf(Period.WEEK) }
 
-    LaunchedEffect(resumeTick) {
+    LaunchedEffect(resumeTick, period) {
         listenerOn = NotifStats.isListenerEnabled(context)
-        result = withContext(Dispatchers.IO) { NotifStats.load(context) }
+        result = withContext(Dispatchers.IO) { NotifStats.load(context, period) }
     }
 
     val entries = result?.first.orEmpty()
@@ -93,11 +95,16 @@ fun NotifAppsScreen(resumeTick: Int) {
 
         item {
             PremiumCard(Modifier.fillMaxWidth()) {
-                SectionHeader("🔔", ScoreWarn, "최근 ${NotifStats.DAYS}일 알림", "${total}개", MaterialTheme.colorScheme.onSurface)
+                SectionHeader(
+                    "🔔", ScoreWarn,
+                    if (period == Period.TODAY) "오늘 알림" else "최근 ${period.days}일 알림",
+                    "${total}개", MaterialTheme.colorScheme.onSurface,
+                )
+                PeriodChips(period, listOf(Period.TODAY, Period.WEEK, Period.MONTH)) { period = it }
                 val since = NotifStats.listenerSince(context)
                 Text(
                     when {
-                        source == NotifSource.LISTENER && since > 0 && daysAgo(since) < NotifStats.DAYS ->
+                        source == NotifSource.LISTENER && since > 0 && daysAgo(since) < period.days ->
                             "${formatDate(since)}부터 집계 중이에요. 며칠 지나면 더 정확해져요."
                         source == NotifSource.LISTENER -> "알림 접근으로 직접 센 결과예요."
                         source == NotifSource.USAGE -> "시스템 기록 기준이에요. 알림 접근을 켜면 더 정확해져요."
@@ -111,7 +118,7 @@ fun NotifAppsScreen(resumeTick: Int) {
 
         val max = entries.firstOrNull()?.count ?: 1
         items(entries, key = { it.packageName }) { e ->
-            val perDay = e.count.toFloat() / NotifStats.DAYS
+            val perDay = e.count.toFloat() / period.days
             RankRow(
                 icon = e.icon,
                 label = e.label,
@@ -143,12 +150,15 @@ fun DataUsageScreen(resumeTick: Int) {
     var entries by remember { mutableStateOf<List<DataEntry>?>(null) }
     var failed by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(true) }
+    var period by rememberSaveable { mutableStateOf(Period.MONTH) }
+    // 데이터는 '30일' 대신 요금제 기준인 '이번 달(1일부터)'로 계산
+    val start = if (period == Period.MONTH) DataUsage.monthStart() else period.start()
 
-    LaunchedEffect(resumeTick, wifi) {
+    LaunchedEffect(resumeTick, wifi, period) {
         hasAccess = AppUsage.hasUsageAccess(context)
         if (!hasAccess) return@LaunchedEffect
         loading = true
-        val r = withContext(Dispatchers.IO) { DataUsage.load(context, wifi) }
+        val r = withContext(Dispatchers.IO) { DataUsage.load(context, wifi, start) }
         failed = r == null
         entries = r
         loading = false
@@ -181,6 +191,13 @@ fun DataUsageScreen(resumeTick: Int) {
                 FilterChip(selected = wifi, onClick = { wifi = true }, label = { Text("🛜 와이파이") })
             }
         }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(Period.TODAY to "오늘", Period.WEEK to "7일", Period.MONTH to "이번 달").forEach { (p, label) ->
+                    FilterChip(selected = period == p, onClick = { period = p }, label = { Text(label) })
+                }
+            }
+        }
 
         if (loading) {
             item { LoadingRow("사용량을 계산하는 중…") }
@@ -201,11 +218,15 @@ fun DataUsageScreen(resumeTick: Int) {
             PremiumCard(Modifier.fillMaxWidth()) {
                 SectionHeader(
                     if (wifi) "🛜" else "📶", LocalBrand.current.end,
-                    if (wifi) "이번 달 와이파이" else "이번 달 모바일 데이터",
+                    (when (period) {
+                        Period.TODAY -> "오늘 "
+                        Period.WEEK -> "최근 7일 "
+                        Period.MONTH -> "이번 달 "
+                    }) + (if (wifi) "와이파이" else "모바일 데이터"),
                     formatBytes(total), MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    "${formatDate(DataUsage.monthStart())}부터 오늘까지 · 받은 데이터와 보낸 데이터를 합친 값이에요",
+                    "${formatDate(start)}부터 지금까지 · 받은 데이터와 보낸 데이터를 합친 값이에요",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -246,6 +267,15 @@ fun DataUsageScreen(resumeTick: Int) {
 }
 
 // ======================== 공통 ========================
+
+@Composable
+fun PeriodChips(selected: Period, options: List<Period>, onSelect: (Period) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        options.forEach { p ->
+            FilterChip(selected = selected == p, onClick = { onSelect(p) }, label = { Text(p.label) })
+        }
+    }
+}
 
 @Composable
 private fun LoadingRow(text: String) {

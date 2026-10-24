@@ -33,14 +33,14 @@ object DataUsage {
     }.timeInMillis
 
     /** wifi=false면 모바일 데이터. 실패하면 null */
-    fun load(c: Context, wifi: Boolean): List<DataEntry>? {
+    fun load(c: Context, wifi: Boolean, start: Long = monthStart()): List<DataEntry>? {
         val nsm = c.getSystemService(NetworkStatsManager::class.java) ?: return null
         @Suppress("DEPRECATION")
         val type = if (wifi) ConnectivityManager.TYPE_WIFI else ConnectivityManager.TYPE_MOBILE
         val rxByUid = HashMap<Int, Long>()
         val txByUid = HashMap<Int, Long>()
         try {
-            val stats = nsm.querySummary(type, null, monthStart(), System.currentTimeMillis())
+            val stats = nsm.querySummary(type, null, start, System.currentTimeMillis())
             val b = NetworkStats.Bucket()
             while (stats.hasNextBucket()) {
                 stats.getNextBucket(b)

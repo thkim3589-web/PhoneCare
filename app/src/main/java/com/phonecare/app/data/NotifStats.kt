@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.graphics.drawable.toBitmap
 import com.phonecare.app.util.DAY_MS
+import com.phonecare.app.util.Period
 import com.phonecare.app.util.openSettings
 import org.json.JSONObject
 import java.text.SimpleDateFormat
@@ -34,7 +35,8 @@ enum class NotifSource { LISTENER, USAGE, NONE }
  */
 object NotifStats {
 
-    const val DAYS = 7
+    /** 알림 접근으로 센 기록 보관 기간 */
+    private const val KEEP_DAYS = 31
     private const val PREFS = "notif_stats"
     private const val KEY_DATA = "data"
     private const val KEY_SINCE = "since"
@@ -70,7 +72,7 @@ object NotifStats {
         val day = root.optJSONObject(today) ?: JSONObject().also { root.put(today, it) }
         day.put(pkg, day.optInt(pkg, 0) + 1)
         // 오래된 날짜 정리
-        val cutoff = dayFmt.format(Date(System.currentTimeMillis() - (DAYS + 1) * DAY_MS))
+        val cutoff = dayFmt.format(Date(System.currentTimeMillis() - (KEEP_DAYS + 1) * DAY_MS))
         root.keys().asSequence().toList().filter { it < cutoff }.forEach { root.remove(it) }
         val edit = prefs.edit().putString(KEY_DATA, root.toString())
         if (!prefs.contains(KEY_SINCE)) edit.putLong(KEY_SINCE, System.currentTimeMillis())
@@ -81,13 +83,13 @@ object NotifStats {
     fun listenerSince(c: Context): Long =
         c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KEY_SINCE, 0L)
 
-    private fun listenerCounts(c: Context): Map<String, Int> = synchronized(lock) {
+    private fun listenerCounts(c: Context, period: Period): Map<String, Int> = synchronized(lock) {
         val root = try {
             JSONObject(c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_DATA, "{}") ?: "{}")
         } catch (e: Exception) {
             return emptyMap()
         }
-        val cutoff = dayFmt.format(Date(System.currentTimeMillis() - (DAYS - 1) * DAY_MS))
+        val cutoff = dayFmt.format(Date(System.currentTimeMillis() - (period.days - 1) * DAY_MS))
         val out = HashMap<String, Int>()
         root.keys().forEach { day ->
             if (day < cutoff) return@forEach
@@ -97,12 +99,12 @@ object NotifStats {
         out
     }
 
-    private fun usageEventCounts(c: Context): Map<String, Int> {
+    private fun usageEventCounts(c: Context, period: Period): Map<String, Int> {
         if (!AppUsage.hasUsageAccess(c)) return emptyMap()
         val out = HashMap<String, Int>()
         try {
             val now = System.currentTimeMillis()
-            val events = c.getSystemService(UsageStatsManager::class.java).queryEvents(now - DAYS * DAY_MS, now)
+            val events = c.getSystemService(UsageStatsManager::class.java).queryEvents(period.start(), now)
             val e = UsageEvents.Event()
             while (events.hasNextEvent()) {
                 events.getNextEvent(e)
@@ -117,15 +119,15 @@ object NotifStats {
     }
 
     /** 알림 많은 앱 순위 (백그라운드에서 호출) */
-    fun load(c: Context, limit: Int = 30): Pair<List<NotifEntry>, NotifSource> {
+    fun load(c: Context, period: Period = Period.WEEK, limit: Int = 30): Pair<List<NotifEntry>, NotifSource> {
         var source = NotifSource.NONE
         var counts: Map<String, Int> = emptyMap()
         if (isListenerEnabled(c)) {
-            counts = listenerCounts(c)
+            counts = listenerCounts(c, period)
             source = NotifSource.LISTENER
         }
         if (counts.isEmpty()) {
-            val fromEvents = usageEventCounts(c)
+            val fromEvents = usageEventCounts(c, period)
             if (fromEvents.isNotEmpty()) {
                 counts = fromEvents
                 source = NotifSource.USAGE

@@ -73,3 +73,23 @@ fun Context.openFilePreview(path: String) {
         android.widget.Toast.makeText(this, "이 파일을 열 수 있는 앱이 없어요", android.widget.Toast.LENGTH_SHORT).show()
     }
 }
+
+/** 기간 선택 (오늘 / 7일 / 30일) */
+enum class Period(val days: Int, val label: String) {
+    TODAY(1, "오늘"),
+    WEEK(7, "7일"),
+    MONTH(30, "30일");
+
+    /** 기간 시작 시각: 오늘은 0시부터, 나머지는 지금부터 N일 전 */
+    fun start(): Long {
+        if (this == TODAY) {
+            return java.util.Calendar.getInstance().apply {
+                set(java.util.Calendar.HOUR_OF_DAY, 0)
+                set(java.util.Calendar.MINUTE, 0)
+                set(java.util.Calendar.SECOND, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+            }.timeInMillis
+        }
+        return System.currentTimeMillis() - days * DAY_MS
+    }
+}

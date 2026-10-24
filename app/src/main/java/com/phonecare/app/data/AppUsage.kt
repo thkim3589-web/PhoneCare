@@ -143,6 +143,20 @@ object AppUsage {
     }
 
     /** 오늘 0시부터 지금까지 앱별 화면 사용 시간 (긴 순) — 백그라운드에서 호출 */
+    /** 기간별 화면 사용 시간 (오늘은 정확한 이벤트 집계, 7일 이상은 시스템 합계 사용) */
+    fun loadUsage(context: Context, days: Int, limit: Int = 10): List<UsageItem> {
+        if (days <= 1) return loadTodayUsage(context, limit)
+        val usm = context.getSystemService(UsageStatsManager::class.java)
+        val now = System.currentTimeMillis()
+        val totals = try {
+            usm.queryAndAggregateUsageStats(now - days * DAY_MS, now)
+                .mapValues { it.value.totalTimeInForeground }
+        } catch (e: Exception) {
+            return emptyList()
+        }
+        return toUsageItems(context, totals, limit)
+    }
+
     fun loadTodayUsage(context: Context, limit: Int = 10): List<UsageItem> {
         val usm = context.getSystemService(UsageStatsManager::class.java)
         val pm = context.packageManager
@@ -174,6 +188,11 @@ object AppUsage {
             return emptyList()
         }
 
+        return toUsageItems(context, totals, limit)
+    }
+
+    private fun toUsageItems(context: Context, totals: Map<String, Long>, limit: Int): List<UsageItem> {
+        val pm = context.packageManager
         return totals.entries
             .filter { it.key != context.packageName && it.value > 60_000 }
             .sortedByDescending { it.value }

@@ -17,6 +17,7 @@ import com.phonecare.app.service.GuardSettings
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -72,6 +73,7 @@ fun BatterySection(resumeTick: Int) {
     var powerHistory by remember { mutableStateOf(listOf<Float>()) }
     var hasUsage by remember { mutableStateOf(AppUsage.hasUsageAccess(context)) }
     var topApps by remember { mutableStateOf<List<UsageItem>?>(null) }
+    var usagePeriod by remember { mutableStateOf(com.phonecare.app.util.Period.TODAY) }
     var thermalLevel by remember { mutableStateOf(0) }
 
     // 배터리 실시간 측정 (2초)
@@ -88,10 +90,11 @@ fun BatterySection(resumeTick: Int) {
         }
     }
     // 오늘 많이 쓴 앱 (1분마다 갱신)
-    LaunchedEffect(resumeTick) {
+    LaunchedEffect(resumeTick, usagePeriod) {
         hasUsage = AppUsage.hasUsageAccess(context)
+        topApps = null
         while (hasUsage) {
-            topApps = withContext(Dispatchers.IO) { AppUsage.loadTodayUsage(context) }
+            topApps = withContext(Dispatchers.IO) { AppUsage.loadUsage(context, usagePeriod.days) }
             delay(60_000)
         }
     }
@@ -144,6 +147,23 @@ fun BatterySection(resumeTick: Int) {
                             "충전 사이클" to (b.cycleCount?.let { "${it}회" } ?: "확인 불가"),
                         ),
                     )
+                    var showRaw by remember { mutableStateOf(false) }
+                    Text(
+                        if (showRaw) "측정 원본 값 접기 ▲" else "측정 원본 값 보기 ▼",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable { showRaw = !showRaw },
+                    )
+                    if (showRaw) {
+                        Text(
+                            "전류 원본: ${b.rawCurrent} (${b.unitNote})\n" +
+                                "남은 용량 원본: ${b.rawCounter}\n" +
+                                "전압: ${b.voltageMv} mV · 기술: ${b.technology}\n" +
+                                "값이 이상하면 이 화면을 캡처해서 보내주세요. 기기에 맞게 보정할게요.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
 
@@ -170,7 +190,11 @@ fun BatterySection(resumeTick: Int) {
         // ----- 오늘 많이 쓴 앱 -----
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("오늘 많이 쓴 앱", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("많이 쓴 앱", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                PeriodChips(
+                    usagePeriod,
+                    listOf(com.phonecare.app.util.Period.TODAY, com.phonecare.app.util.Period.WEEK),
+                ) { usagePeriod = it }
                 Text(
                     "화면 사용 시간이 길수록 배터리 소모와 발열이 커요. 게임·동영상·지도·카메라 앱은 '고부하'로 표시돼요.",
                     style = MaterialTheme.typography.bodySmall,
@@ -184,7 +208,7 @@ fun BatterySection(resumeTick: Int) {
                     val apps = topApps
                     when {
                         apps == null -> Text("불러오는 중…")
-                        apps.isEmpty() -> Text("오늘 사용 기록이 아직 없어요.")
+                        apps.isEmpty() -> Text("이 기간 사용 기록이 아직 없어요.")
                         else -> {
                             val max = apps.first().foregroundMs.coerceAtLeast(1)
                             apps.forEach { UsageRow(it, it.foregroundMs.toFloat() / max) }
