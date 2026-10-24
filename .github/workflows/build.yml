@@ -47,6 +47,23 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
 
+      # 커밋 메시지에 [lint]가 있으면 코드 검사 실행 → 결과를 '사전 릴리스'로 올림 (앱 업데이트에는 안 잡힘)
+      - name: Lint check
+        if: contains(github.event.head_commit.message, '[lint]')
+        env:
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          ./gradlew lintDebug --no-daemon
+          cp app/build/lint-results.txt lint-results.txt || echo "no report" > lint-results.txt
+
+      - uses: softprops/action-gh-release@v2
+        if: contains(github.event.head_commit.message, '[lint]')
+        with:
+          tag_name: lint-${{ github.run_number }}
+          name: 코드 검사 ${{ github.run_number }}
+          prerelease: true
+          files: lint-results.txt
+
       - name: Rename APK
         run: cp app/build/outputs/apk/debug/app-debug.apk PhoneCare.apk
 
@@ -56,6 +73,7 @@ jobs:
           path: PhoneCare.apk
 
       - uses: softprops/action-gh-release@v2
+        if: "!contains(github.event.head_commit.message, '[lint]')"
         with:
           tag_name: build-${{ github.run_number }}
           name: PhoneCare build ${{ github.run_number }}

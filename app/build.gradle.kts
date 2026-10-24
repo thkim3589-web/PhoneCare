@@ -58,6 +58,13 @@ android {
     buildFeatures {
         compose = true
     }
+    // 코드 검사(Lint): 문제가 있어도 빌드는 멈추지 않고 결과만 파일로 남김
+    lint {
+        abortOnError = false
+        checkReleaseBuilds = false
+        textReport = true
+        textOutput = file("build/lint-results.txt")
+    }
 }
 
 dependencies {
