@@ -1,6 +1,7 @@
 package com.phonecare.app.data
 
 import android.content.Context
+import android.media.MediaMetadataRetriever
 import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Handler
@@ -107,7 +108,8 @@ object VideoCompressor {
         onProgress: (Float) -> Unit,
     ): CompressResult {
         val outFile = File(context.cacheDir, "compress_${System.currentTimeMillis()}.mp4")
-        val error: String? = withContext(Dispatchers.Main) { runTransformer(context, v, preset, outFile, onProgress) }
+        val display = withContext(Dispatchers.IO) { displaySize(v) }
+        val error: String? = withContext(Dispatchers.Main) { runTransformer(context, v, preset, display, outFile, onProgress) }
         if (error != null) {
             outFile.delete()
             return CompressResult.Failed(error)
@@ -115,10 +117,30 @@ object VideoCompressor {
         return withContext(Dispatchers.IO) { finish(context, v, outFile) }
     }
 
+    /** 회전 정보를 반영한 실제 화면상의 가로·세로 */
+    private fun displaySize(v: VideoItem): Pair<Int, Int> {
+        val r = MediaMetadataRetriever()
+        return try {
+            r.setDataSource(v.path)
+            val w = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: v.width
+            val h = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: v.height
+            val rot = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
+            if (rot == 90 || rot == 270) h to w else w to h
+        } catch (e: Exception) {
+            v.width to v.height
+        } finally {
+            try {
+                r.release()
+            } catch (e: Exception) {
+            }
+        }
+    }
+
     private suspend fun runTransformer(
         context: Context,
         v: VideoItem,
         preset: VideoPreset,
+        display: Pair<Int, Int>,
         outFile: File,
         onProgress: (Float) -> Unit,
     ): String? = suspendCancellableCoroutine { cont ->
@@ -157,8 +179,16 @@ object VideoCompressor {
                 .build()
             transformer = t
             // 짧은 변이 목표보다 크면 줄이고, 이미 작으면 해상도는 그대로 두고 용량만 낮춤
-            val effects = if (v.shortSide > preset.shortSide) {
-                Effects(listOf(), listOf(Presentation.createForShortSide(preset.shortSide)))
+            val (dw, dh) = display
+            val short = minOf(dw, dh)
+            val effects = if (short > preset.shortSide && dw > 0 && dh > 0) {
+                val scale = preset.shortSide.toFloat() / short
+                val outW = ((dw * scale).toInt() / 2) * 2 // 인코더는 짝수 크기를 좋아함
+                val outH = ((dh * scale).toInt() / 2) * 2
+                Effects(
+                    listOf(),
+                    listOf(Presentation.createForWidthAndHeight(outW, outH, Presentation.LAYOUT_SCALE_TO_FIT)),
+                )
             } else {
                 Effects.EMPTY
             }
