@@ -211,6 +211,8 @@ class BatteryGuardService : Service() {
 /** 재부팅·앱 업데이트 후 자동으로 다시 시작 */
 class GuardBootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        val action = intent.action
+        if (action != Intent.ACTION_BOOT_COMPLETED && action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         if (GuardSettings.isEnabled(context)) GuardSettings.start(context)
     }
 }

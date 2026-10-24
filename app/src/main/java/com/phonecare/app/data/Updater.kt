@@ -6,51 +6,61 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.core.content.FileProvider
-import org.json.JSONObject
+import com.phonecare.app.BuildConfig
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
-import java.time.Instant
 
 data class UpdateInfo(val tag: String, val name: String, val apkUrl: String, val publishedAt: Long)
 
 /**
  * GitHub Releases에 새 APK가 올라왔는지 확인하고, 내려받아 설치 화면을 연다.
- * 새 버전 판단: 릴리스 게시 시각이 이 앱을 마지막으로 설치/업데이트한 시각보다 늦으면 새 버전.
+ * 새 버전 판단: 최신 릴리스 번호(build-N)가 이 앱의 빌드 번호보다 크면 새 버전.
+ * GitHub API 대신 '최신 릴리스' 주소의 이동 위치만 확인해서 횟수 제한에 걸리지 않음.
  */
 object Updater {
 
-    private const val LATEST_URL = "https://api.github.com/repos/thkim3589-web/PhoneCare/releases/latest"
+    private const val REPO = "https://github.com/thkim3589-web/PhoneCare"
+    private const val LATEST_PAGE = "$REPO/releases/latest"
 
-    /** 설치 직후 같은 빌드를 다시 새 버전으로 보지 않도록 여유 시간 */
-    private const val MARGIN_MS = 2 * 60 * 1000L
+    /** 너무 자주 확인하지 않도록 30분 간격 */
+    private const val CHECK_INTERVAL_MS = 30 * 60 * 1000L
+    private var lastCheck = 0L
+    private var lastResult: UpdateInfo? = null
 
-    /** 새 버전이 있으면 정보를, 없으면 null (네트워크 실패도 null) */
-    fun check(context: Context): UpdateInfo? = try {
-        val conn = (URL(LATEST_URL).openConnection() as HttpURLConnection).apply {
+    /** 최신 릴리스 태그 (예: build-15). 실패하면 null */
+    private fun latestTag(): String? {
+        val conn = (URL(LATEST_PAGE).openConnection() as HttpURLConnection).apply {
             connectTimeout = 8000
             readTimeout = 8000
-            setRequestProperty("Accept", "application/vnd.github+json")
+            instanceFollowRedirects = false
         }
-        val body = conn.inputStream.bufferedReader().use { it.readText() }
-        conn.disconnect()
-        val json = JSONObject(body)
-        val assets = json.getJSONArray("assets")
-        var apkUrl: String? = null
-        for (i in 0 until assets.length()) {
-            val a = assets.getJSONObject(i)
-            if (a.getString("name").endsWith(".apk")) apkUrl = a.getString("browser_download_url")
+        return try {
+            conn.responseCode
+            conn.getHeaderField("Location")?.substringAfter("/releases/tag/", "")?.takeIf { it.isNotBlank() }
+        } finally {
+            conn.disconnect()
         }
-        val published = Instant.parse(json.getString("published_at")).toEpochMilli()
-        @Suppress("DEPRECATION")
-        val installedAt = context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime
-        if (apkUrl != null && published > installedAt + MARGIN_MS) {
-            UpdateInfo(json.getString("tag_name"), json.optString("name", ""), apkUrl, published)
-        } else {
-            null
+    }
+
+    /** 새 버전이 있으면 정보를, 없으면 null (네트워크 실패도 null) */
+    fun check(@Suppress("UNUSED_PARAMETER") context: Context): UpdateInfo? {
+        val now = System.currentTimeMillis()
+        if (now - lastCheck < CHECK_INTERVAL_MS) return lastResult
+        return try {
+            val tag = latestTag() ?: return lastResult
+            lastCheck = now
+            val latest = tag.removePrefix("build-").toIntOrNull()
+            val mine = BuildConfig.BUILD_NUMBER
+            lastResult = if (latest != null && mine > 0 && latest > mine) {
+                UpdateInfo(tag, "폰케어 빌드 $latest", "$REPO/releases/download/$tag/PhoneCare.apk", 0L)
+            } else {
+                null
+            }
+            lastResult
+        } catch (e: Exception) {
+            lastResult
         }
-    } catch (e: Exception) {
-        null
     }
 
     /** APK 다운로드 (진행률 0~1 콜백). 성공하면 파일을 돌려준다. */

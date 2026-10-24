@@ -12,8 +12,10 @@ android {
         applicationId = "com.phonecare.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 15
-        versionName = "3.0"
+        versionCode = 16
+        versionName = "3.1"
+        // GitHub 빌드 번호 (자동 업데이트 비교용, 직접 빌드하면 0)
+        buildConfigField("int", "BUILD_NUMBER", System.getenv("GITHUB_RUN_NUMBER") ?: "0")
     }
 
     // 정식 서명 키: GitHub Secrets에 키가 등록돼 있으면 정식 키, 없으면 테스트 키로 서명
@@ -57,6 +59,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     // 코드 검사(Lint): 문제가 있어도 빌드는 멈추지 않고 결과만 파일로 남김
     lint {

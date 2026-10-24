@@ -71,9 +71,12 @@ private fun loadThumb(path: String): ImageBitmap? = try {
 @Composable
 fun FileThumbnail(path: String, modifier: Modifier = Modifier) {
     val bitmap by produceState<ImageBitmap?>(ThumbCache.cache.get(path), path) {
-        if (value == null && isMediaFile(path)) {
-            value = withContext(Dispatchers.IO) { loadThumb(path) }?.also { ThumbCache.cache.put(path, it) }
-        }
+        value = ThumbCache.cache.get(path)
+            ?: if (isMediaFile(path)) {
+                withContext(Dispatchers.IO) { loadThumb(path) }?.also { ThumbCache.cache.put(path, it) }
+            } else {
+                null
+            }
     }
     Box(
         modifier
