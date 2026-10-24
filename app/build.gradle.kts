@@ -12,8 +12,8 @@ android {
         applicationId = "com.phonecare.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 14
-        versionName = "2.9"
+        versionCode = 15
+        versionName = "3.0"
     }
 
     // 정식 서명 키: GitHub Secrets에 키가 등록돼 있으면 정식 키, 없으면 테스트 키로 서명
