@@ -36,6 +36,13 @@ object ScanState {
     var cleanupAt by mutableLongStateOf(0L)
     var cleanupJob: Job? = null
 
+    // 정크 파일
+    var junk by mutableStateOf<List<com.phonecare.app.data.JunkItem>?>(null)
+    var junkScanning by mutableStateOf(false)
+    var junkCount by mutableIntStateOf(0)
+    var junkAt by mutableLongStateOf(0L)
+    var junkJob: Job? = null
+
     // 중복 사진
     var dupGroups by mutableStateOf<List<PhotoGroup>?>(null)
     var dupScanning by mutableStateOf(false)
@@ -56,6 +63,7 @@ object ScanState {
     fun removePaths(paths: Set<String>) {
         if (paths.isEmpty()) return
         cleanup = cleanup?.filterNot { it.path in paths }
+        junk = junk?.filterNot { it.path in paths }
         dupGroups = dupGroups
             ?.map { g -> g.copy(photos = g.photos.filterNot { it.path in paths }) }
             ?.filter { it.photos.size > 1 }

@@ -102,7 +102,8 @@ private enum class FileSort(val label: String) {
     }
 }
 
-private val sectionLabels = listOf("정리 후보", "중복 사진", "💬 메신저", "🎬 동영상", "휴지통")
+// (섹션 번호, 이름) — 번호는 다른 화면에서 바로 이동할 때 쓰므로 고정, 보이는 순서만 바꿈
+private val sectionLabels = listOf(0 to "정리 후보", 5 to "🧹 정크", 1 to "중복 사진", 2 to "💬 메신저", 3 to "🎬 동영상", 4 to "휴지통")
 
 /** 보호 추천 폴더 (있는 것만 보여줌) */
 private val suggestedFolders = listOf(
@@ -162,7 +163,7 @@ fun StorageScreen(resumeTick: Int) {
                     Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    sectionLabels.forEachIndexed { i, label ->
+                    sectionLabels.forEach { (i, label) ->
                         FilterChip(selected = section == i, onClick = { section = i }, label = { Text(label) })
                     }
                 }
@@ -216,6 +217,7 @@ fun StorageScreen(resumeTick: Int) {
                 1 -> DuplicatesSection(Modifier.weight(1f))
                 2 -> MessengerSection(protectedList, Modifier.weight(1f))
                 3 -> VideoSection(protectedList, Modifier.weight(1f))
+                5 -> JunkSection(protectedList, Modifier.weight(1f))
                 else -> TrashSection(resumeTick, Modifier.weight(1f))
             }
         }
